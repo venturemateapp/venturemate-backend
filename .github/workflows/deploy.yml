@@ -1,0 +1,69 @@
+name: Deploy Backend to Production
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to remote server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 139.162.170.220
+          username: root
+          password: startupos.2026
+          script: |
+            set -e
+            
+            DEPLOY_DIR="/root/venturemate/bcknd"
+            REPO_URL="https://${{ secrets.PAT }}@github.com/venturemateapp/bcknd.git"
+            
+            # Create deploy directory if not exists
+            mkdir -p /root/venturemate
+            
+            # Check if repo exists, if not clone it
+            if [ ! -d "$DEPLOY_DIR/.git" ]; then
+              echo "Repository not found. Cloning..."
+              rm -rf "$DEPLOY_DIR"
+              git clone "$REPO_URL" "$DEPLOY_DIR"
+              cd "$DEPLOY_DIR"
+            else
+              echo "Repository exists. Pulling latest changes..."
+              cd "$DEPLOY_DIR"
+              
+              # Stash any local changes
+              git stash || true
+              
+              # Reset to match remote and pull
+              git config pull.rebase false
+              git fetch origin
+              git reset --hard origin/$(git rev-parse --abbrev-ref HEAD) || true
+              
+              # Pull with merge strategy
+              git pull origin $(git rev-parse --abbrev-ref HEAD) --no-rebase || {
+                echo "Merge conflicts detected. Resolving..."
+                git checkout --theirs .
+                git add -A
+                git commit -m "Auto-resolve merge conflicts"
+              }
+            fi
+            
+            # Build the Rust backend
+            echo "Building backend..."
+            cargo build --release
+            
+            # Stop any existing backend process
+            echo "Stopping existing backend..."
+            pkill -f "bcknd" || true
+            sleep 2
+            
+            # Start backend with nohup
+            echo "Starting backend in production mode..."
+            nohup ./target/release/bcknd > /root/venturemate/backend.log 2>&1 &
+            
+            echo "Backend deployment completed!"
+            echo "Logs: tail -f /root/venturemate/backend.log"
