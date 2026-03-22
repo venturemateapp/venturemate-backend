@@ -3,10 +3,17 @@ name: Deploy Backend to Production
 on:
   push:
     branches:
-      - '**'
+      - main
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
 
 jobs:
   deploy:
+    # Run on push to main OR on PR merge to main
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     
     steps:
