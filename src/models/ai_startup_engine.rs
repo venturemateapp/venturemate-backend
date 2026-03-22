@@ -46,7 +46,7 @@ pub struct CreateGenerationLogRequest {
     pub ai_model: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdateGenerationLogRequest {
     pub status: Option<String>,
     pub prompt_sent: Option<String>,

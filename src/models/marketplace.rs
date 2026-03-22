@@ -21,7 +21,7 @@ pub struct ServiceListing {
     pub pricing: Option<serde_json::Value>,
     pub delivery_time_days: Option<i32>,
     pub portfolio_urls: Option<serde_json::Value>,
-    pub rating: Option<rust_decimal::Decimal>,
+    pub rating: Option<String>,
     pub review_count: i32,
     pub status: String,
     pub is_verified: bool,
@@ -50,7 +50,7 @@ pub struct ServiceListingResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServicePricingInfo {
-    pub base_price: rust_decimal::Decimal,
+    pub base_price: String,
     pub currency: String,
     pub price_tiers: Vec<PriceTier>,
 }
@@ -58,7 +58,7 @@ pub struct ServicePricingInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceTier {
     pub name: String,
-    pub price: rust_decimal::Decimal,
+    pub price: String,
     pub description: String,
     pub delivery_days: i32,
 }
@@ -76,7 +76,7 @@ pub struct MarketplaceOrder {
     pub provider_id: Uuid,
     pub requirements: Option<String>,
     pub attachments: Option<serde_json::Value>,
-    pub total_amount: rust_decimal::Decimal,
+    pub total_amount: String,
     pub currency: String,
     pub status: String,
     pub delivery_date: Option<DateTime<Utc>>,
@@ -95,7 +95,7 @@ pub struct OrderResponse {
     pub buyer_id: Uuid,
     pub provider_id: Uuid,
     pub requirements: String,
-    pub total_amount: rust_decimal::Decimal,
+    pub total_amount: String,
     pub currency: String,
     pub status: String,
     pub delivery_date: Option<DateTime<Utc>>,
@@ -347,7 +347,7 @@ pub struct ListServiceListingsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_rating: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_price: Option<rust_decimal::Decimal>,
+    pub max_price: Option<String>,
     #[serde(default = "default_featured")]
     pub featured_only: bool,
 }
@@ -382,7 +382,7 @@ pub struct CreateOrderRequest {
 pub struct CreateOrderResponse {
     pub order_id: Uuid,
     pub status: String,
-    pub total_amount: rust_decimal::Decimal,
+    pub total_amount: String,
     pub message: String,
 }
 

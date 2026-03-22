@@ -4,7 +4,7 @@ use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use uuid::Uuid;
 
 use crate::models::health_score::{
-    AnalyzeWebsiteRequest, GetHealthScoreHistoryRequest, RefreshHealthScoreRequest,
+    AnalyzeWebsiteRequest, GetHealthScoreHistoryRequest,
 };
 use crate::models::ApiResponse;
 use crate::services::HealthScoreService;

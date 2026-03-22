@@ -373,31 +373,37 @@ impl AiConversationService {
         // TODO: Get user's business and calculate score
         // For now, return a mock score
         Ok(HealthScoreResponse {
+            id: Uuid::new_v4(),
             business_id: Uuid::new_v4(),
             overall_score: 75,
-            grade: "B".to_string(),
-            components: crate::models::HealthComponents {
+            status: "healthy".to_string(),
+            trend: "stable".to_string(),
+            grade: Some("B".to_string()),
+            components: crate::models::HealthScoreComponents {
                 compliance: crate::models::ComponentScore {
-                    score: 80, max_score: 100, grade: "B".to_string(), status: "good".to_string()
+                    score: 80, weight: 0.2, max_score: Some(100), grade: Some("B".to_string()), status: Some("good".to_string()), breakdown: None
                 },
-                revenue_viability: crate::models::ComponentScore {
-                    score: 70, max_score: 100, grade: "C".to_string(), status: "needs_work".to_string()
+                revenue: crate::models::ComponentScore {
+                    score: 70, weight: 0.2, max_score: Some(100), grade: Some("C".to_string()), status: Some("needs_work".to_string()), breakdown: None
                 },
                 market_fit: crate::models::ComponentScore {
-                    score: 75, max_score: 100, grade: "B".to_string(), status: "good".to_string()
+                    score: 75, weight: 0.2, max_score: Some(100), grade: Some("B".to_string()), status: Some("good".to_string()), breakdown: None
                 },
-                team_structure: crate::models::ComponentScore {
-                    score: 85, max_score: 100, grade: "A".to_string(), status: "excellent".to_string()
+                team: crate::models::ComponentScore {
+                    score: 85, weight: 0.2, max_score: Some(100), grade: Some("A".to_string()), status: Some("excellent".to_string()), breakdown: None
                 },
-                financial_sustainability: crate::models::ComponentScore {
-                    score: 70, max_score: 100, grade: "C".to_string(), status: "needs_work".to_string()
+                operations: crate::models::ComponentScore {
+                    score: 70, weight: 0.2, max_score: Some(100), grade: Some("C".to_string()), status: Some("needs_work".to_string()), breakdown: None
                 },
-                digital_presence: crate::models::ComponentScore {
-                    score: 75, max_score: 100, grade: "B".to_string(), status: "good".to_string()
+                funding_readiness: crate::models::ComponentScore {
+                    score: 75, weight: 0.2, max_score: Some(100), grade: Some("B".to_string()), status: Some("good".to_string()), breakdown: None
                 },
             },
-            recommendations: vec![],
-            priority_actions: vec![],
+            contributing_factors: crate::models::ContributingFactors {
+                positive: vec!["Strong compliance record".to_string()],
+                negative: vec!["Revenue growth needs attention".to_string()],
+            },
+            recommendations_count: 0,
             calculated_at: Utc::now(),
         })
     }
@@ -429,20 +435,13 @@ impl AiConversationService {
         Ok(recommendations.into_iter().map(|r| RecommendationResponse {
             id: r.id,
             recommendation_type: r.recommendation_type,
-            priority: r.priority,
+            priority: r.priority.clone(),
+            priority_label: r.priority,
             title: r.title,
             description: r.description,
-            context: crate::models::RecommendationContext {
-                why: "Based on your startup profile".to_string(),
-                benefits: vec![],
-                risks_if_ignored: vec![],
-            },
-            action: crate::models::RecommendationAction {
-                action_type: r.action_type.unwrap_or_default(),
-                label: "Take Action".to_string(),
-                url: r.action_url,
-                params: r.action_params,
-            },
+            impact_description: r.impact_description,
+            cta_text: r.cta_text,
+            cta_link: r.cta_link,
             status: r.status,
             created_at: r.created_at,
         }).collect())

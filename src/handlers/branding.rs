@@ -3,12 +3,12 @@
 //! API endpoints for logo generation, color palettes, font pairings,
 //! and complete brand asset management.
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Result};
+use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::models::ApiResponse;
-use crate::models::branding::{GenerateBrandKitRequest, BrandKitStatusResponse, RegenerateLogoRequest};
+use crate::models::branding::{GenerateBrandKitRequest, RegenerateLogoRequest};
 use crate::services::BrandingService;
 use crate::utils::get_user_id;
 

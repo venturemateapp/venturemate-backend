@@ -7,10 +7,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::{
-    AiBlueprint, ApprovalResponse, ConnectServiceRequest, CreateStartupRequest,
+    AiBlueprint, ApprovalResponse, ConnectServiceRequest,
     GenerateStartupStackResponse, Milestone,
-    MilestoneResponse, RequiredApproval, Startup, StartupDocument,
-    StartupMetric, StartupOverview, StartupProgressResponse, StartupResponse,
+    MilestoneResponse, RequiredApproval, Startup, StartupDocument, StartupOverview, StartupProgressResponse, StartupResponse,
     SuggestedService, UpdateApprovalRequest, UpdateMilestoneRequest, UpdateStartupRequest,
     UpcomingDeadline,
 };
@@ -83,7 +82,7 @@ impl StartupStackService {
         let country_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM supported_countries WHERE code = $1)"
         )
-        .bind(&blueprint.country.to_uppercase())
+        .bind(blueprint.country.to_uppercase())
         .fetch_one(&self.db)
         .await?;
 
@@ -132,7 +131,7 @@ impl StartupStackService {
         .bind(&blueprint.vision_statement)
         .bind(&blueprint.industry)
         .bind(&blueprint.sub_industry)
-        .bind(&blueprint.country.to_uppercase())
+        .bind(blueprint.country.to_uppercase())
         .fetch_one(&self.db)
         .await?;
 
@@ -197,7 +196,7 @@ impl StartupStackService {
         }
 
         // Add AI-suggested milestones
-        for (idx, ai_milestone) in blueprint.milestones.iter().enumerate() {
+        for ai_milestone in blueprint.milestones.iter() {
             current_sequence += 10;
             let days = ai_milestone.estimated_days.max(1);
             cumulative_days += days;
@@ -242,11 +241,9 @@ impl StartupStackService {
         
         if country == "NG" {
             // Nigeria-specific approvals
-            let nigeria_approvals = vec![
-                ("CAC Business Registration", "Corporate Affairs Commission", "registration", 7, vec!["ID Proof", "Business Address"]),
+            let nigeria_approvals = [("CAC Business Registration", "Corporate Affairs Commission", "registration", 7, vec!["ID Proof", "Business Address"]),
                 ("TIN Registration", "Federal Inland Revenue Service", "tax", 5, vec!["CAC Certificate"]),
-                ("VAT Registration", "Federal Inland Revenue Service", "tax", 3, vec!["TIN Certificate"]),
-            ];
+                ("VAT Registration", "Federal Inland Revenue Service", "tax", 3, vec!["TIN Certificate"])];
 
             for (idx, (name, authority, approval_type, days, docs)) in nigeria_approvals.iter().enumerate() {
                 let docs_json = json!(docs);
@@ -275,10 +272,8 @@ impl StartupStackService {
             }
         } else {
             // Generic approvals for other countries
-            let generic_approvals = vec![
-                ("Business Registration", "Local Authority", "registration", 10),
-                ("Tax Registration", "Tax Authority", "tax", 7),
-            ];
+            let generic_approvals = [("Business Registration", "Local Authority", "registration", 10),
+                ("Tax Registration", "Tax Authority", "tax", 7)];
 
             for (idx, (name, authority, approval_type, days)) in generic_approvals.iter().enumerate() {
                 sqlx::query(

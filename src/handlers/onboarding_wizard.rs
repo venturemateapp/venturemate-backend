@@ -14,7 +14,7 @@ use crate::utils::{get_user_id, ResponseBuilder};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/onboarding")
+        web::scope("/onboarding-wizard")
             // Wizard flow endpoints
             .service(start_wizard)
             .service(save_step)
@@ -34,7 +34,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 // ============================================
 // 1. START ONBOARDING WIZARD
 // ============================================
-#[post("/wizard/start")]
+#[post("/start")]
 async fn start_wizard(
     wizard_service: web::Data<OnboardingWizardService>,
     req: HttpRequest,
@@ -45,7 +45,7 @@ async fn start_wizard(
         None => return ResponseBuilder::unauthorized("Not authenticated"),
     };
 
-    let _source = body.as_ref().map(|b| b.source.clone()).flatten();
+    let _source = body.as_ref().and_then(|b| b.source.clone());
 
     match wizard_service.start_onboarding(user_id).await {
         Ok(response) => ResponseBuilder::created(response),
@@ -56,7 +56,7 @@ async fn start_wizard(
 // ============================================
 // 2. SAVE STEP ANSWERS
 // ============================================
-#[post("/wizard/step")]
+#[post("/step")]
 async fn save_step(
     wizard_service: web::Data<OnboardingWizardService>,
     req: web::Json<SaveStepAnswersRequest>,
@@ -83,11 +83,12 @@ async fn save_step(
 // 3. GET STEP CONTENT
 // ============================================
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct GetStepQuery {
     session_id: Uuid,
 }
 
-#[get("/wizard/step/{step_number}")]
+#[get("/step/{step_number}")]
 async fn get_step(
     wizard_service: web::Data<OnboardingWizardService>,
     path: web::Path<i32>,
@@ -102,7 +103,7 @@ async fn get_step(
     let step_number = path.into_inner();
 
     // Validate step number is 1-5
-    if step_number < 1 || step_number > 5 {
+    if !(1..=5).contains(&step_number) {
         return ResponseBuilder::bad_request("Step number must be between 1 and 5");
     }
 
@@ -123,7 +124,7 @@ struct CompleteWizardRequest {
     session_id: Uuid,
 }
 
-#[post("/wizard/complete")]
+#[post("/complete")]
 async fn complete_wizard(
     wizard_service: web::Data<OnboardingWizardService>,
     req: web::Json<CompleteWizardRequest>,
@@ -148,7 +149,7 @@ struct ResumeWizardQuery {
     session_id: Uuid,
 }
 
-#[get("/wizard/resume")]
+#[get("/resume")]
 async fn resume_wizard(
     wizard_service: web::Data<OnboardingWizardService>,
     query: web::Query<ResumeWizardQuery>,
@@ -233,7 +234,7 @@ async fn get_cofounders(
 // ============================================
 // 9. TRACK ANALYTICS EVENT
 // ============================================
-#[post("/wizard/track")]
+#[post("/track")]
 async fn track_event(
     req: web::Json<TrackOnboardingEventRequest>,
     http_req: HttpRequest,

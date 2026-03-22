@@ -7,10 +7,11 @@ use crate::utils::{AppError, Result};
 use base64;
 use crate::models::branding::{
     BrandAsset, BrandAssetResponse, BrandAssetsLog, ColorInfo, ColorPalette,
-    ColorPalettePreset, FontInfo, FontPairingPreset, FontPairings, GenerateBrandKitRequest,
+    ColorPalettePreset, FontPairingPreset, FontPairings, GenerateBrandKitRequest,
     GenerateBrandKitResponse, BrandKitStatusResponse, IndustryColorPsychology,
     LogoVariants, RegenerateLogoRequest, get_industry_font_pairing, NeutralColors, FunctionalColors,
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_ENGINE};
 use crate::services::ai_service::AIService;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -61,7 +62,7 @@ impl BrandingService {
         .await
         .map_err(AppError::Database)?;
 
-        if let Some(asset) = existing {
+        if let Some(ref asset) = existing {
             if asset.status == "generating" {
                 return Ok(GenerateBrandKitResponse {
                     generation_id: asset.id,
@@ -72,7 +73,7 @@ impl BrandingService {
         }
 
         // Create brand asset record
-        let generation_id = existing.map(|a| a.id).unwrap_or_else(Uuid::new_v4);
+        let generation_id = existing.as_ref().map(|a| a.id).unwrap_or_else(Uuid::new_v4);
         
         if existing.is_none() {
             sqlx::query(
@@ -140,7 +141,7 @@ impl BrandingService {
         tagline: Option<String>,
         brand_personality: Option<String>,
         custom_prompt: Option<String>,
-        user_id: Uuid,
+        _user_id: Uuid,
     ) -> Result<()> {
         let start_time = std::time::Instant::now();
 
@@ -183,7 +184,7 @@ impl BrandingService {
 
         // Step 4: Generate logo variants (placeholder - in production would generate multiple variants)
         let logo_variants = serde_json::json!({
-            "full_color": if logo_data.is_empty() { None::<String> } else { Some(format!("data:image/svg+xml;base64,{}", base64::encode(&logo_data))) },
+            "full_color": if logo_data.is_empty() { None::<String> } else { Some(format!("data:image/svg+xml;base64,{}", BASE64_ENGINE.encode(&logo_data))) },
             "icon": None::<String>,
             "white": None::<String>,
             "horizontal": None::<String>
@@ -235,7 +236,7 @@ impl BrandingService {
         The SVG should be simple, scalable, and professional. 
         Size: 512x512 viewBox. Use flat design with the colors mentioned.";
 
-        match ai_service.generate_text(system_prompt, prompt, 2000).await {
+        match ai_service.generate_text(system_prompt, prompt, 2000, Some(0.7)).await {
             Ok(svg_content) => {
                 // Clean up the response
                 let svg = svg_content
@@ -301,7 +302,7 @@ impl BrandingService {
             let logo_url = asset.logo_data.as_ref().map(|data| {
                 format!("data:{};base64,{}", 
                     asset.logo_mime_type.as_deref().unwrap_or("image/svg+xml"),
-                    base64::encode(data)
+                    BASE64_ENGINE.encode(data)
                 )
             });
 
@@ -328,7 +329,7 @@ impl BrandingService {
                 color_palette,
                 font_pairings,
                 brand_guidelines_available: asset.brand_guidelines_pdf.is_some(),
-                status: asset.status,
+                status: asset.status.clone(),
                 generated_at: asset.generated_at,
             })
         } else {
@@ -336,7 +337,7 @@ impl BrandingService {
         };
 
         Ok(BrandKitStatusResponse {
-            status: asset.status,
+            status: asset.status.clone(),
             assets: assets_response,
             error_message: None,
             progress_percent: if asset.status == "generating" { Some(50) } else { None },
@@ -397,7 +398,7 @@ impl BrandingService {
         .map_err(AppError::Database)?;
 
         // Get existing color palette
-        let color_palette: ColorPalette = asset.color_palette
+        let _color_palette: ColorPalette = asset.color_palette
             .as_ref()
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_else(|| {
@@ -684,9 +685,9 @@ fn hex_to_rgb(hex: &str) -> String {
     // Simple hex to RGB conversion
     let hex = hex.trim_start_matches('#');
     if hex.len() >= 6 {
-        let r = u8::from_str_radix(&hex[0..2], 10).unwrap_or(0);
-        let g = u8::from_str_radix(&hex[2..4], 10).unwrap_or(0);
-        let b = u8::from_str_radix(&hex[4..6], 10).unwrap_or(0);
+        let r = hex[0..2].parse::<u8>().unwrap_or(0);
+        let g = hex[2..4].parse::<u8>().unwrap_or(0);
+        let b = hex[4..6].parse::<u8>().unwrap_or(0);
         format!("{},{},{}", r, g, b)
     } else {
         "107,70,193".to_string()
@@ -698,9 +699,9 @@ fn hex_to_hsl(hex: &str) -> String {
     // Simplified HSL conversion
     let hex = hex.trim_start_matches('#');
     if hex.len() >= 6 {
-        let r = u8::from_str_radix(&hex[0..2], 10).unwrap_or(0) as f32 / 255.0;
-        let g = u8::from_str_radix(&hex[2..4], 10).unwrap_or(0) as f32 / 255.0;
-        let b = u8::from_str_radix(&hex[4..6], 10).unwrap_or(0) as f32 / 255.0;
+        let r = hex[0..2].parse::<u8>().unwrap_or(0) as f32 / 255.0;
+        let g = hex[2..4].parse::<u8>().unwrap_or(0) as f32 / 255.0;
+        let b = hex[4..6].parse::<u8>().unwrap_or(0) as f32 / 255.0;
         
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);

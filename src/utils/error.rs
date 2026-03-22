@@ -35,6 +35,9 @@ pub enum AppError {
     
     #[error("Too many requests: {0}")]
     RateLimit(String),
+    
+    #[error("AI generation error: {0}")]
+    AiGeneration(String),
 }
 
 impl AppError {
@@ -63,6 +66,7 @@ impl ResponseError for AppError {
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::RateLimited(_) => StatusCode::TOO_MANY_REQUESTS,
             AppError::RateLimit(_) => StatusCode::TOO_MANY_REQUESTS,
+            AppError::AiGeneration(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -83,6 +87,7 @@ impl ResponseError for AppError {
             AppError::Conflict(_) => "CONFLICT",
             AppError::RateLimited(_) => "RATE_LIMITED",
             AppError::RateLimit(_) => "RATE_LIMIT",
+            AppError::AiGeneration(_) => "AI_GENERATION_ERROR",
         };
         
         HttpResponse::build(status).json(json!({

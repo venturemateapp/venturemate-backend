@@ -7,7 +7,7 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::models::ApiResponse;
-use crate::models::documents::{AccessDataRoomRequest, AddDataRoomFileRequest, CreateDataRoomRequest, DataRoomAccessResponse, ShareDataRoomRequest};
+use crate::models::documents::{AccessDataRoomRequest, AddDataRoomFileRequest, CreateDataRoomRequest, ShareDataRoomRequest};
 use crate::services::DataRoomService;
 use crate::utils::get_user_id;
 
@@ -272,7 +272,7 @@ async fn access_shared_data_room(
     req: web::Json<AccessDataRoomRequest>,
     http_req: HttpRequest,
 ) -> HttpResponse {
-    let ip_addr = http_req.peer_addr().map(|addr| addr.ip());
+    let ip_addr = http_req.peer_addr().map(|addr| addr.ip().to_string());
     let user_agent = http_req.headers()
         .get("user-agent")
         .and_then(|h| h.to_str().ok());
@@ -301,7 +301,7 @@ async fn download_data_room_file(
 
     match service.download_file(user_id, data_room_id, file_id).await {
         Ok((filename, content)) => {
-            let mime_type = match filename.split('.').last() {
+            let mime_type = match filename.split('.').next_back() {
                 Some("pdf") => "application/pdf",
                 Some("docx") => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 Some("pptx") => "application/vnd.openxmlformats-officedocument.presentationml.presentation",

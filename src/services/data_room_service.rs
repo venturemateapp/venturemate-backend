@@ -4,7 +4,7 @@
 // access logs, and sharing capabilities.
 
 use crate::utils::{AppError, Result, hash_password, verify_password};
-use base64;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_ENGINE};
 use crate::models::documents::{
     AccessDataRoomRequest, AccessLogEntry, AddDataRoomFileRequest, CreateDataRoomRequest,
     DataRoom, DataRoomAccessLogsResponse, DataRoomAccessResponse, DataRoomFile,
@@ -12,8 +12,8 @@ use crate::models::documents::{
     ShareDataRoomRequest, ShareDataRoomResponse,
 };
 use sqlx::PgPool;
-use std::net::IpAddr;
-use tracing::{error, info, warn};
+
+use tracing::info;
 use uuid::Uuid;
 
 pub struct DataRoomService {
@@ -58,7 +58,7 @@ impl DataRoomService {
         .bind(data_room_id)
         .bind(req.business_id)
         .bind(&name)
-        .bind(req.description)
+        .bind(&req.description)
         .execute(&self.db)
         .await
         .map_err(AppError::Database)?;
@@ -72,7 +72,7 @@ impl DataRoomService {
             id: data_room_id,
             business_id: req.business_id,
             name,
-            description: req.description,
+            description: req.description.clone(),
             shareable_link: None,
             password_protected: false,
             expires_at: None,
@@ -82,6 +82,10 @@ impl DataRoomService {
             is_active: true,
             file_count: 0,
             created_at: chrono::Utc::now(),
+            document_count: None,
+            view_count: None,
+            is_public: None,
+            access_url: None,
         })
     }
 
@@ -128,6 +132,10 @@ impl DataRoomService {
             is_active: dr.is_active,
             file_count,
             created_at: dr.created_at,
+            document_count: None,
+            view_count: None,
+            is_public: None,
+            access_url: None,
         })
     }
 
@@ -180,6 +188,10 @@ impl DataRoomService {
             is_active: dr.is_active,
             file_count: dr.file_count,
             created_at: dr.created_at,
+            document_count: None,
+            view_count: None,
+            is_public: None,
+            access_url: None,
         }).collect())
     }
 
@@ -278,16 +290,13 @@ impl DataRoomService {
         };
 
         // Generate shareable link
-        let share_token = format!("dr-{}", Uuid::new_v4().to_string().replace("-", "").to_lowercase()[..16].to_string());
+        let share_token = format!("dr-{}", &Uuid::new_v4().to_string().replace("-", "").to_lowercase()[..16]);
         let share_link = format!("https://app.venturemate.com/d/{}?utm_source=investor_data_room", share_token);
 
         dr.shareable_link = Some(share_link.clone());
         dr.password_protected = req.password.is_some();
         dr.password_hash = match req.password {
-            Some(p) => match hash_password(&p) {
-                Ok(h) => Some(h),
-                Err(_) => None,
-            },
+            Some(p) => hash_password(&p).ok(),
             None => None,
         };
         dr.expires_at = req.expires_in_days.map(|days| chrono::Utc::now() + chrono::Duration::days(days as i64));
@@ -331,7 +340,7 @@ impl DataRoomService {
         &self,
         share_token: &str,
         req: AccessDataRoomRequest,
-        ip_addr: Option<IpAddr>,
+        ip_addr: Option<String>,
         user_agent: Option<&str>,
     ) -> Result<DataRoomAccessResponse> {
         let share_link = format!("https://app.venturemate.com/d/{}", share_token);
@@ -442,16 +451,16 @@ impl DataRoomService {
         .await
         .map_err(AppError::Database)?;
 
-        let Some(dr) = data_room else {
+        let Some(_dr) = data_room else {
             return Err(AppError::NotFound("Data room not found".to_string()));
         };
 
         // Validate folder
         let folder_enum = req.folder.parse::<DataRoomFolder>()
-            .map_err(|e| AppError::Validation(e))?;
+            .map_err(AppError::Validation)?;
 
         // Decode base64 file data
-        let file_data = base64::decode(&req.file_data)
+        let file_data = BASE64_ENGINE.decode(&req.file_data)
             .map_err(|_| AppError::Validation("Invalid file data".to_string()))?;
 
         let file_id = Uuid::new_v4();
@@ -562,7 +571,7 @@ impl DataRoomService {
             return Err(AppError::NotFound("Data room not found".to_string()));
         }
 
-        let logs: Vec<(Uuid, Option<IpAddr>, Option<String>, String, Option<String>, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+        let logs: Vec<(Uuid, Option<String>, Option<String>, String, Option<String>, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
             "SELECT dral.id, dral.ip_address, dral.email, dral.action, drf.file_name, dral.created_at
              FROM data_room_access_logs dral
              LEFT JOIN data_room_files drf ON dral.file_id = drf.id
@@ -602,7 +611,7 @@ impl DataRoomService {
         .await
         .map_err(AppError::Database)?;
 
-        for (doc_id, doc_name, file_data, file_format) in documents {
+        for (_doc_id, doc_name, file_data, file_format) in documents {
             if let Some(data) = file_data {
                 let folder = match doc_name.to_lowercase().as_str() {
                     n if n.contains("business plan") => DataRoomFolder::BusinessPlan,

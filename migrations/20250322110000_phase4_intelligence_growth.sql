@@ -42,9 +42,9 @@ CREATE TABLE IF NOT EXISTS health_scores (
     UNIQUE(business_id)
 );
 
-CREATE INDEX idx_health_scores_business ON health_scores(business_id);
-CREATE INDEX idx_health_scores_overall ON health_scores(overall_score);
-CREATE INDEX idx_health_scores_calculated ON health_scores(calculated_at);
+CREATE INDEX IF NOT EXISTS idx_health_scores_business ON health_scores(business_id);
+CREATE INDEX IF NOT EXISTS idx_health_scores_overall ON health_scores(overall_score);
+CREATE INDEX IF NOT EXISTS idx_health_scores_calculated ON health_scores(calculated_at);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_health_scores_updated_at 
@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS health_score_history (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_health_score_history_business ON health_score_history(business_id);
-CREATE INDEX idx_health_score_history_calculated ON health_score_history(calculated_at);
+CREATE INDEX IF NOT EXISTS idx_health_score_history_business ON health_score_history(business_id);
+CREATE INDEX IF NOT EXISTS idx_health_score_history_calculated ON health_score_history(calculated_at);
 
 -- ============================================================================
 -- 3. MARKET FIT ANALYSIS TABLE
@@ -104,9 +104,9 @@ CREATE TABLE IF NOT EXISTS market_fit_analysis (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_market_fit_analysis_business ON market_fit_analysis(business_id);
-CREATE INDEX idx_market_fit_analysis_type ON market_fit_analysis(analysis_type);
-CREATE INDEX idx_market_fit_analysis_expires ON market_fit_analysis(expires_at);
+CREATE INDEX IF NOT EXISTS idx_market_fit_analysis_business ON market_fit_analysis(business_id);
+CREATE INDEX IF NOT EXISTS idx_market_fit_analysis_type ON market_fit_analysis(analysis_type);
+CREATE INDEX IF NOT EXISTS idx_market_fit_analysis_expires ON market_fit_analysis(expires_at);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_market_fit_analysis_updated_at 
@@ -153,11 +153,11 @@ CREATE TABLE IF NOT EXISTS recommendations (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_recommendations_business ON recommendations(business_id);
-CREATE INDEX idx_recommendations_status ON recommendations(status);
-CREATE INDEX idx_recommendations_priority ON recommendations(priority);
-CREATE INDEX idx_recommendations_type ON recommendations(recommendation_type);
-CREATE INDEX idx_recommendations_created ON recommendations(created_at);
+CREATE INDEX IF NOT EXISTS idx_recommendations_business ON recommendations(business_id);
+CREATE INDEX IF NOT EXISTS idx_recommendations_status ON recommendations(status);
+CREATE INDEX IF NOT EXISTS idx_recommendations_priority ON recommendations(priority);
+CREATE INDEX IF NOT EXISTS idx_recommendations_type ON recommendations(recommendation_type);
+CREATE INDEX IF NOT EXISTS idx_recommendations_created ON recommendations(created_at);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_recommendations_updated_at 
@@ -178,8 +178,8 @@ CREATE TABLE IF NOT EXISTS recommendation_actions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_recommendation_actions_recommendation ON recommendation_actions(recommendation_id);
-CREATE INDEX idx_recommendation_actions_user ON recommendation_actions(user_id);
+CREATE INDEX IF NOT EXISTS idx_recommendation_actions_recommendation ON recommendation_actions(recommendation_id);
+CREATE INDEX IF NOT EXISTS idx_recommendation_actions_user ON recommendation_actions(user_id);
 
 -- ============================================================================
 -- 6. MEDIA MARKETPLACE - SERVICE LISTINGS
@@ -212,10 +212,10 @@ CREATE TABLE IF NOT EXISTS service_listings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_service_listings_category ON service_listings(service_category);
-CREATE INDEX idx_service_listings_provider ON service_listings(provider_id);
-CREATE INDEX idx_service_listings_status ON service_listings(status);
-CREATE INDEX idx_service_listings_featured ON service_listings(featured);
+CREATE INDEX IF NOT EXISTS idx_service_listings_category ON service_listings(service_category);
+CREATE INDEX IF NOT EXISTS idx_service_listings_provider ON service_listings(provider_id);
+CREATE INDEX IF NOT EXISTS idx_service_listings_status ON service_listings(status);
+CREATE INDEX IF NOT EXISTS idx_service_listings_featured ON service_listings(featured);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_service_listings_updated_at 
@@ -251,11 +251,11 @@ CREATE TABLE IF NOT EXISTS marketplace_orders (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_marketplace_orders_business ON marketplace_orders(business_id);
-CREATE INDEX idx_marketplace_orders_service ON marketplace_orders(service_id);
-CREATE INDEX idx_marketplace_orders_buyer ON marketplace_orders(buyer_id);
-CREATE INDEX idx_marketplace_orders_provider ON marketplace_orders(provider_id);
-CREATE INDEX idx_marketplace_orders_status ON marketplace_orders(status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_orders_business ON marketplace_orders(business_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_orders_service ON marketplace_orders(service_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_orders_buyer ON marketplace_orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_orders_provider ON marketplace_orders(provider_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_orders_status ON marketplace_orders(status);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_marketplace_orders_updated_at 
@@ -284,8 +284,8 @@ CREATE TABLE IF NOT EXISTS marketplace_reviews (
     UNIQUE(order_id)
 );
 
-CREATE INDEX idx_marketplace_reviews_provider ON marketplace_reviews(provider_id);
-CREATE INDEX idx_marketplace_reviews_rating ON marketplace_reviews(rating);
+CREATE INDEX IF NOT EXISTS idx_marketplace_reviews_provider ON marketplace_reviews(provider_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_reviews_rating ON marketplace_reviews(rating);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_marketplace_reviews_updated_at 
@@ -309,9 +309,9 @@ CREATE TABLE IF NOT EXISTS marketplace_messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_marketplace_messages_order ON marketplace_messages(order_id);
-CREATE INDEX idx_marketplace_messages_sender ON marketplace_messages(sender_id);
-CREATE INDEX idx_marketplace_messages_read ON marketplace_messages(is_read);
+CREATE INDEX IF NOT EXISTS idx_marketplace_messages_order ON marketplace_messages(order_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_messages_sender ON marketplace_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_messages_read ON marketplace_messages(is_read);
 
 -- ============================================================================
 -- 10. AI CONTENT GENERATION
@@ -341,11 +341,11 @@ CREATE TABLE IF NOT EXISTS ai_content (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_ai_content_business ON ai_content(business_id);
-CREATE INDEX idx_ai_content_type ON ai_content(content_type);
-CREATE INDEX idx_ai_content_platform ON ai_content(platform);
-CREATE INDEX idx_ai_content_status ON ai_content(status);
-CREATE INDEX idx_ai_content_scheduled ON ai_content(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_ai_content_business ON ai_content(business_id);
+CREATE INDEX IF NOT EXISTS idx_ai_content_type ON ai_content(content_type);
+CREATE INDEX IF NOT EXISTS idx_ai_content_platform ON ai_content(platform);
+CREATE INDEX IF NOT EXISTS idx_ai_content_status ON ai_content(status);
+CREATE INDEX IF NOT EXISTS idx_ai_content_scheduled ON ai_content(scheduled_date);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_ai_content_updated_at 
@@ -373,8 +373,8 @@ CREATE TABLE IF NOT EXISTS health_score_calculations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_health_score_calculations_business ON health_score_calculations(business_id);
-CREATE INDEX idx_health_score_calculations_created ON health_score_calculations(created_at);
+CREATE INDEX IF NOT EXISTS idx_health_score_calculations_business ON health_score_calculations(business_id);
+CREATE INDEX IF NOT EXISTS idx_health_score_calculations_created ON health_score_calculations(created_at);
 
 -- ============================================================================
 -- 12. VIEWS
@@ -385,8 +385,7 @@ CREATE OR REPLACE VIEW health_scores_with_business AS
 SELECT 
     hs.*,
     b.name as business_name,
-    b.industry,
-    b.business_stage
+    b.industry
 FROM health_scores hs
 JOIN businesses b ON hs.business_id = b.id;
 
@@ -394,8 +393,7 @@ JOIN businesses b ON hs.business_id = b.id;
 CREATE OR REPLACE VIEW recommendations_with_business AS
 SELECT 
     r.*,
-    b.name as business_name,
-    b.user_id
+    b.name as business_name
 FROM recommendations r
 JOIN businesses b ON r.business_id = b.id;
 
@@ -403,13 +401,9 @@ JOIN businesses b ON r.business_id = b.id;
 CREATE OR REPLACE VIEW service_listings_complete AS
 SELECT 
     sl.*,
-    u.email as provider_email,
-    up.first_name as provider_first_name,
-    up.last_name as provider_last_name,
-    up.avatar_url as provider_avatar
+    u.email as provider_email
 FROM service_listings sl
 JOIN users u ON sl.provider_id = u.id
-LEFT JOIN user_profiles up ON u.id = up.user_id
 WHERE sl.status = 'active';
 
 -- ============================================================================

@@ -40,7 +40,7 @@ async fn list_accounts(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<SocialAccountResponse> = accounts.into_iter()
         .map(|a| SocialAccountResponse {
@@ -78,7 +78,7 @@ async fn connect_account(
     .bind(format!("@{}_handle", body.platform)) // Placeholder
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(account)))
 }
@@ -99,7 +99,7 @@ async fn get_account(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match account {
         Some(a) => Ok(HttpResponse::Ok().json(ApiResponse::success(a))),
@@ -121,7 +121,7 @@ async fn disconnect_account(
         .bind(business_id)
         .execute(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::NoContent().finish())
 }
@@ -145,7 +145,7 @@ async fn toggle_ai_content(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match account {
         Some(a) => Ok(HttpResponse::Ok().json(ApiResponse::success(a))),
@@ -181,7 +181,7 @@ async fn get_content_calendar(
         .await
     };
     
-    let items = items.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    let items = items.map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<ContentCalendarResponse> = items.into_iter()
         .map(|i| ContentCalendarResponse {
@@ -238,7 +238,7 @@ async fn create_content(
     .bind(ai_generated.unwrap_or_default())
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(item)))
 }
@@ -259,7 +259,7 @@ async fn get_content_item(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match item {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -289,7 +289,7 @@ async fn schedule_content(
     .bind(&body.timezone)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match item {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -316,7 +316,7 @@ async fn publish_content(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match item {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -338,7 +338,7 @@ async fn delete_content(
         .bind(business_id)
         .execute(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::NoContent().finish())
 }
@@ -435,7 +435,7 @@ async fn get_default_business_id(pool: &PgPool, user_id: Uuid) -> Result<Uuid, a
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorBadRequest("No business found"))?;
     
     Ok(business_id)

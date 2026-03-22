@@ -162,7 +162,7 @@ impl From<OnboardingSession> for OnboardingSessionResponse {
 }
 
 fn get_step_status(current_step: &str, step_id: &str) -> String {
-    let steps = vec!["idea_intake", "founder_profile", "business_details", "review"];
+    let steps = ["idea_intake", "founder_profile", "business_details", "review"];
     let current_idx = steps.iter().position(|&s| s == current_step).unwrap_or(0);
     let step_idx = steps.iter().position(|&s| s == step_id).unwrap_or(0);
     

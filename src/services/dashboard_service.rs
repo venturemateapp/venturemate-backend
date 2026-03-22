@@ -5,8 +5,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::{
-    DashboardData, NextAction, QuickStats, StartupActivity, StartupOverview,
-    StartupProgressResponse, UpcomingDeadline,
+    DashboardData, NextAction, StartupActivity, StartupOverview,
+    StartupProgressResponse,
 };
 use crate::utils::Result;
 

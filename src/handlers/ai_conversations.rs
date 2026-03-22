@@ -225,7 +225,7 @@ async fn dismiss_recommendation(
         None => return ResponseBuilder::unauthorized("Not authenticated"),
     };
 
-    match ai_service.dismiss_recommendation(user_id, path.into_inner(), req.reason.clone()).await {
+    match ai_service.dismiss_recommendation(user_id, path.into_inner(), req.reason.clone().unwrap_or_default()).await {
         Ok(_) => ResponseBuilder::ok(serde_json::json!({"message": "Recommendation dismissed"})),
         Err(e) => e.error_response(),
     }

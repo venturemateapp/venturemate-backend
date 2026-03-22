@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::FromRow;
@@ -28,7 +29,7 @@ pub struct User {
     // Security fields per spec
     pub failed_login_attempts: i32,
     pub locked_until: Option<DateTime<Utc>>,
-    pub last_login_ip: Option<String>,
+    pub last_login_ip: Option<IpNetwork>,
     pub consent_tracking: Value,
     
     pub created_at: DateTime<Utc>,
@@ -80,7 +81,7 @@ pub struct Session {
     pub refresh_token_hash: String,
     pub device_fingerprint: Option<String>,
     pub user_agent: Option<String>,
-    pub ip_address: Option<String>,
+    pub ip_address: Option<IpNetwork>,
     pub expires_at: DateTime<Utc>,
     pub refresh_expires_at: DateTime<Utc>,
     pub revoked_at: Option<DateTime<Utc>>,

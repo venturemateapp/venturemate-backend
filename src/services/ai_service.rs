@@ -435,7 +435,7 @@ Return ONLY the prompt text, nothing else."#,
         system_prompt: &str,
         user_prompt: &str,
         max_tokens: u32,
-        temperature: Option<f32>,
+        _temperature: Option<f32>,
     ) -> Result<String> {
         let response = self
             .call_claude(Some(system_prompt), user_prompt, max_tokens)

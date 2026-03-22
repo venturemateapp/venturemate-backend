@@ -98,12 +98,12 @@ pub struct PaginationParams {
 impl PaginationParams {
     pub fn offset(&self) -> i64 {
         let page = self.page.unwrap_or(1).max(1);
-        let per_page = self.per_page.unwrap_or(20).max(1).min(100);
+        let per_page = self.per_page.unwrap_or(20).clamp(1, 100);
         (page - 1) * per_page
     }
 
     pub fn limit(&self) -> i64 {
-        self.per_page.unwrap_or(20).max(1).min(100)
+        self.per_page.unwrap_or(20).clamp(1, 100)
     }
 }
 

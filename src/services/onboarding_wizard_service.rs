@@ -1123,7 +1123,7 @@ impl OnboardingWizardService {
         
         if consonants > 0 {
             let ratio = vowels as f64 / consonants as f64;
-            if ratio < 0.1 || ratio > 2.0 {
+            if !(0.1..=2.0).contains(&ratio) {
                 return true;
             }
         }

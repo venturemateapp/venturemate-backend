@@ -202,6 +202,8 @@ pub struct CalculateHealthScoreRequest {
     pub business_id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub component: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub force_recalculate: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

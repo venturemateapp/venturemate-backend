@@ -1,4 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
+use ipnetwork::IpNetwork;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -126,6 +127,9 @@ impl AuthService {
             None
         };
 
+        // Convert IpAddr to IpNetwork for PostgreSQL INET type
+        let ip_network: Option<IpNetwork> = ip.map(|addr| addr.into());
+
         sqlx::query(
             r#"
             INSERT INTO rate_limit_logs (identifier, identifier_type, action, ip_address, user_agent, allowed, blocked_until)
@@ -135,7 +139,7 @@ impl AuthService {
         .bind(identifier)
         .bind(identifier_type)
         .bind(action)
-        .bind(ip.map(|i| i.to_string()))
+        .bind(ip_network)
         .bind(user_agent)
         .bind(allowed)
         .bind(blocked_until)
@@ -166,6 +170,9 @@ impl AuthService {
         user_agent: Option<&str>,
         error_message: Option<&str>,
     ) -> Result<()> {
+        // Convert IpAddr to IpNetwork for PostgreSQL INET type
+        let ip_network: Option<IpNetwork> = ip.map(|addr| addr.into());
+
         sqlx::query(
             r#"
             INSERT INTO audit_logs (user_id, event_type, event_category, description, severity, success, ip_address, user_agent, error_message)
@@ -178,7 +185,7 @@ impl AuthService {
         .bind(description)
         .bind(severity)
         .bind(success)
-        .bind(ip.map(|i| i.to_string()))
+        .bind(ip_network)
         .bind(user_agent)
         .bind(error_message)
         .execute(&self.db)
@@ -343,14 +350,51 @@ impl AuthService {
         // Generate tokens
         let tokens = self.create_session(user.id, ip, user_agent, 30).await?;
 
-        // Send welcome email
-        if let Some(ref email_service) = self.email_service {
-            let first_name = if user.first_name.is_empty() { "there" } else { &user.first_name };
-            let _ = email_service.send_welcome(&user.email, user.id, first_name).await;
-        }
-
-        // Send verification email
-        let _ = self.create_email_verification(user.id, &user.email).await;
+        // Send emails in background to not block response
+        let user_id_clone = user.id;
+        let email_service_clone = self.email_service.clone();
+        let email = user.email.clone();
+        let first_name = user.first_name.clone();
+        let db_clone = self.db.clone();
+        tokio::spawn(async move {
+            // Send welcome email
+            if let Some(ref email_service) = email_service_clone {
+                let name = if first_name.is_empty() { "there" } else { &first_name };
+                let _ = email_service.send_welcome(&email, user_id_clone, name).await;
+            }
+            
+            // Create and send verification token
+            // Invalidate existing tokens
+            let _ = sqlx::query(
+                "UPDATE email_verification_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL"
+            )
+            .bind(user_id_clone)
+            .execute(&db_clone)
+            .await;
+            
+            // Generate new token
+            let token = generate_secure_token();
+            let expires_at = Utc::now() + Duration::hours(24);
+            
+            let _ = sqlx::query(
+                r#"
+                INSERT INTO email_verification_tokens (user_id, token, expires_at)
+                VALUES ($1, $2, $3)
+                "#
+            )
+            .bind(user_id_clone)
+            .bind(&token)
+            .bind(expires_at)
+            .execute(&db_clone)
+            .await;
+            
+            // Send verification email
+            if let Some(ref email_service) = email_service_clone {
+                let _ = email_service.send_email_verification(&email, user_id_clone, &token).await;
+            } else {
+                tracing::info!("Email verification token for {}: {}", email, token);
+            }
+        });
 
         // Log audit
         self.log_audit(
@@ -507,11 +551,12 @@ impl AuthService {
         self.reset_failed_logins(user.id).await?;
 
         // Update last login info
+        let ip_network: Option<IpNetwork> = ip.map(|addr| addr.into());
         let ip_str = ip.map(|i| i.to_string());
         sqlx::query(
             "UPDATE users SET last_login_at = NOW(), last_login_ip = $1 WHERE id = $2"
         )
-        .bind(&ip_str)
+        .bind(ip_network)
         .bind(user.id)
         .execute(&self.db)
         .await?;
@@ -669,10 +714,11 @@ impl AuthService {
         };
 
         // Update last login
+        let ip_network2: Option<IpNetwork> = ip.map(|addr| addr.into());
         sqlx::query(
             "UPDATE users SET last_login_at = NOW(), last_login_ip = $1 WHERE id = $2"
         )
-        .bind(ip.map(|i| i.to_string()))
+        .bind(ip_network2)
         .bind(user.id)
         .execute(&self.db)
         .await?;
@@ -772,6 +818,9 @@ impl AuthService {
         let expires_at = Utc::now() + Duration::hours(1);
         let refresh_expires_at = Utc::now() + Duration::days(refresh_days);
 
+        // Convert IpAddr to IpNetwork for PostgreSQL INET type
+        let ip_network: Option<IpNetwork> = ip.map(|addr| addr.into());
+
         sqlx::query(
             r#"
             INSERT INTO sessions (id, user_id, token_hash, refresh_token_hash, ip_address, user_agent, expires_at, refresh_expires_at)
@@ -782,7 +831,7 @@ impl AuthService {
         .bind(user_id)
         .bind(&access_hash)
         .bind(&refresh_hash)
-        .bind(ip.map(|i| i.to_string()))
+        .bind(ip_network)
         .bind(user_agent)
         .bind(expires_at)
         .bind(refresh_expires_at)
@@ -1666,6 +1715,7 @@ impl AuthService {
 // ============================================================================
 
 #[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
 struct OAuthTokenResponse {
     access_token: String,
     refresh_token: Option<String>,

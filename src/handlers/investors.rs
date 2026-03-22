@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::models::investor::*;
 use crate::models::documents::{DataRoom, DataRoomResponse, CreateDataRoomRequest, DataRoomDocument, DataRoomAccess, AddDocumentToDataRoomRequest};
 use crate::models::business::Business;
-use crate::models::{ApiResponse, PaginatedResponse};
+use crate::models::ApiResponse;
 use crate::utils::get_user_id;
 
 
@@ -41,7 +41,7 @@ async fn get_investor_profile(
     .bind(user_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match profile {
         Some(p) => Ok(HttpResponse::Ok().json(ApiResponse::success(profile_to_response(p)))),
@@ -61,7 +61,7 @@ async fn create_investor_profile(
     .bind(user_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     if existing.is_some() {
         return Ok(HttpResponse::Conflict().json(ApiResponse::<()>::error("ALREADY_EXISTS", "Investor profile already exists")));
@@ -95,7 +95,7 @@ async fn create_investor_profile(
     .bind(&body.value_add)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(profile_to_response(profile))))
 }
@@ -134,7 +134,7 @@ async fn update_investor_profile(
     .bind(&body.value_add)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match profile {
         Some(p) => Ok(HttpResponse::Ok().json(ApiResponse::success(profile_to_response(p)))),
@@ -165,7 +165,7 @@ async fn search_investors(
     let profiles = sqlx::query_as::<_, InvestorProfile>(&query)
         .fetch_all(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<InvestorProfileResponse> = profiles.into_iter()
         .map(profile_to_response)
@@ -201,7 +201,7 @@ async fn get_matches(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Get all investor IDs from matches
     let investor_ids: Vec<uuid::Uuid> = matches.iter().map(|m| m.investor_id).collect();
@@ -214,7 +214,7 @@ async fn get_matches(
         .bind(&investor_ids)
         .fetch_all(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+        .map_err(actix_web::error::ErrorInternalServerError)?
     } else {
         vec![]
     };
@@ -263,7 +263,7 @@ async fn submit_pitch(
     .bind(&body.pitch_message)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match investor_match {
         Some(m) => Ok(HttpResponse::Ok().json(ApiResponse::success(m))),
@@ -290,7 +290,7 @@ async fn update_match_status(
     .bind(status)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match investor_match {
         Some(m) => Ok(HttpResponse::Ok().json(ApiResponse::success(m))),
@@ -376,7 +376,7 @@ async fn list_data_rooms(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Get document counts for each data room
     let data_room_ids: Vec<uuid::Uuid> = data_rooms.iter().map(|dr| dr.id).collect();
@@ -397,7 +397,7 @@ async fn list_data_rooms(
         .bind(&data_room_ids)
         .fetch_all(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+        .map_err(actix_web::error::ErrorInternalServerError)?
     } else {
         vec![]
     };
@@ -410,13 +410,22 @@ async fn list_data_rooms(
     let responses: Vec<DataRoomResponse> = data_rooms.into_iter()
         .map(|dr| DataRoomResponse {
             id: dr.id,
+            business_id: dr.business_id,
             name: dr.name,
             description: dr.description,
-            document_count: *count_map.get(&dr.id).unwrap_or(&0),
+            shareable_link: dr.shareable_link,
+            password_protected: dr.password_protected,
+            expires_at: dr.expires_at,
+            access_count: dr.access_count,
+            download_limit: dr.download_limit,
+            watermark_enabled: dr.watermark_enabled,
+            is_active: dr.is_active,
+            file_count: *count_map.get(&dr.id).unwrap_or(&0),
+            created_at: dr.created_at,
+            document_count: Some(*count_map.get(&dr.id).unwrap_or(&0)),
             view_count: dr.view_count,
             is_public: dr.is_public,
-            expires_at: dr.expires_at,
-            access_url: format!("/data-rooms/{}", dr.id),
+            access_url: Some(format!("/data-rooms/{}", dr.id)),
         })
         .collect();
     
@@ -443,7 +452,7 @@ async fn create_data_room(
     .bind(body.expires_at)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(data_room)))
 }
@@ -461,7 +470,7 @@ async fn get_data_room(
     .bind(data_room_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match data_room {
         Some(dr) => {
@@ -496,7 +505,7 @@ async fn add_document_to_data_room(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorNotFound("Data room not found"))?;
     
     let doc = sqlx::query_as::<_, DataRoomDocument>(
@@ -509,7 +518,7 @@ async fn add_document_to_data_room(
     .bind(&body.folder_path)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(doc)))
 }
@@ -537,7 +546,7 @@ async fn grant_data_room_access(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorNotFound("Data room not found"))?;
     
     let access = sqlx::query_as::<_, DataRoomAccess>(
@@ -553,7 +562,7 @@ async fn grant_data_room_access(
     .bind(expires_at)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(access)))
 }
@@ -592,7 +601,7 @@ async fn generate_matches(pool: &PgPool, business_id: Uuid) -> Result<(), actix_
     .bind(business_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Find matching investors (simplified algorithm)
     let investors = sqlx::query_as::<_, InvestorProfile>(
@@ -600,7 +609,7 @@ async fn generate_matches(pool: &PgPool, business_id: Uuid) -> Result<(), actix_
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     for investor in investors {
         let mut score = 50i32; // Base score
@@ -641,7 +650,7 @@ async fn get_default_business_id(pool: &PgPool, user_id: Uuid) -> Result<Uuid, a
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorBadRequest("No business found"))?;
     
     Ok(business_id)

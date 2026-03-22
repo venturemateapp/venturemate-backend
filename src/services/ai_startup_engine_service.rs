@@ -8,15 +8,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::{
-    AiConfidence, AiValidationLog, BusinessAnalysisPrompt, BusinessAnalysisResponse,
-    BusinessIdentity, BusinessModel, CacheQueryResult, ComplianceRequirements,
-    CreateCacheEntryRequest, CreateGenerationLogRequest, CreateValidationLogRequest,
-    EnhancementPrompt, EnhancementResponse, GenerationLog, GenerationMetadata,
+    AiConfidence, BusinessAnalysisResponse,
+    BusinessIdentity, BusinessModel, CacheQueryResult, ComplianceRequirements, CreateGenerationLogRequest, EnhancementResponse, GenerationLog, GenerationMetadata,
     GenerationStatusResponse, IndustryClassificationCache, IndustryDefinition,
     MarketIntelligence, OnboardingData, ProcessStartupRequest, ProcessStartupResponse,
     RegenerateFieldRequest, RegistrationRequirement, RegulatoryRequirement, RevenueModel,
-    StartupBlueprint, SubIndustryDefinition, UpdateGenerationLogRequest,
-    FALLBACK_INDUSTRIES, FALLBACK_REVENUE_MODELS,
+    StartupBlueprint, UpdateGenerationLogRequest,
+    FALLBACK_INDUSTRIES,
 };
 use crate::services::AIService;
 use crate::utils::{AppError, Result};
@@ -67,8 +65,8 @@ impl AiStartupEngineService {
 
         // Step 4: Run AI business analysis (in background or sync)
         let onboarding_data = req.onboarding_data.clone();
-        let ai_service = self.ai_service.clone();
-        let db = self.db.clone();
+        let _ai_service = self.ai_service.clone();
+        let _db = self.db.clone();
 
         // For now, process synchronously with timeout handling
         match self
@@ -349,7 +347,7 @@ Rules:
     async fn verify_industry_classification(
         &self,
         ai_industry: &str,
-        ai_sub_industry: &Option<String>,
+        _ai_sub_industry: &Option<String>,
     ) -> Result<String> {
         // Check if industry is in predefined list
         let normalized = ai_industry.trim().to_lowercase();
@@ -1031,7 +1029,7 @@ Rules:
         )
         .bind(generation_id)
         .bind(&req.field)
-        .bind(&new_value.to_string())
+        .bind(new_value.to_string())
         .execute(&self.db)
         .await?;
 
@@ -1079,27 +1077,5 @@ Rules:
         };
 
         Ok(requirements)
-    }
-}
-
-// Default implementations for request structs
-impl Default for UpdateGenerationLogRequest {
-    fn default() -> Self {
-        Self {
-            status: None,
-            raw_ai_response: None,
-            parsed_output: None,
-            processing_time_ms: None,
-            input_tokens: None,
-            output_tokens: None,
-            estimated_cost: None,
-            error_message: None,
-            blueprint: None,
-            confidence_overall: None,
-            confidence_industry: None,
-            confidence_revenue: None,
-            confidence_name: None,
-            prompt_sent: None,
-        }
     }
 }

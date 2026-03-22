@@ -5,15 +5,14 @@
 
 use crate::utils::{AppError, Result};
 use crate::models::health_score::{
-    ComplianceScoreBreakdown, ContributingFactors, HealthScore, HealthScoreCalculation,
-    HealthScoreComponents, HealthScoreHistory, HealthScoreHistoryPoint, MarketFitAnalysis,
+    ComplianceScoreBreakdown, ContributingFactors, HealthScore, HealthScoreHistory, HealthScoreHistoryPoint,
     MarketFitScoreBreakdown, OperationsScoreBreakdown, RevenueScoreBreakdown,
     TeamScoreBreakdown, WebsiteAnalysisResult,
 };
 use crate::services::ai_service::AIService;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 pub struct HealthScoreService {
@@ -253,6 +252,9 @@ impl HealthScoreService {
             score,
             weight: 0.25,
             breakdown: Some(serde_json::to_value(&breakdown).unwrap_or_default()),
+            max_score: Some(100),
+            grade: None,
+            status: None,
         })
     }
 
@@ -323,6 +325,9 @@ impl HealthScoreService {
             score,
             weight: 0.25,
             breakdown: Some(serde_json::to_value(&breakdown).unwrap_or_default()),
+            max_score: Some(100),
+            grade: None,
+            status: None,
         })
     }
 
@@ -380,6 +385,9 @@ impl HealthScoreService {
             score,
             weight: 0.20,
             breakdown: Some(serde_json::to_value(&breakdown).unwrap_or_default()),
+            max_score: Some(100),
+            grade: None,
+            status: None,
         })
     }
 
@@ -430,6 +438,9 @@ impl HealthScoreService {
             score,
             weight: 0.15,
             breakdown: Some(serde_json::to_value(&breakdown).unwrap_or_default()),
+            max_score: Some(100),
+            grade: None,
+            status: None,
         })
     }
 
@@ -479,6 +490,9 @@ impl HealthScoreService {
             score,
             weight: 0.15,
             breakdown: Some(serde_json::to_value(&breakdown).unwrap_or_default()),
+            max_score: Some(100),
+            grade: None,
+            status: None,
         })
     }
 
@@ -509,7 +523,7 @@ impl HealthScoreService {
         revenue: &ComponentScore,
         market_fit: &ComponentScore,
         team: &ComponentScore,
-        operations: &ComponentScore,
+        _operations: &ComponentScore,
     ) -> ContributingFactors {
         let mut positive = Vec::new();
         let mut negative = Vec::new();
@@ -575,7 +589,8 @@ Return JSON with: clarity_score, design_score, messaging_score, trust_score, ove
         let response = self.ai_service.generate_text(
             "You are a professional website reviewer. Be objective and thorough.",
             &prompt,
-            1000
+            1000,
+            Some(0.7)
         ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
         // Parse the JSON response

@@ -7,53 +7,62 @@
 -- 1. BRAND ASSETS TABLE
 -- ============================================================================
 
+-- Create table if not exists (without status column initially to handle partial migrations)
 CREATE TABLE IF NOT EXISTS brand_assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-    
-    -- Logo assets (stored as BLOBs per requirements)
     logo_data BYTEA,
     logo_mime_type VARCHAR(100),
     logo_variants JSONB DEFAULT '{}',
-    -- Example: {"full_color": "data:image/png;base64,...", "icon": "...", "white": "..."}
-    
-    -- Generation info
     logo_generation_prompt TEXT,
     logo_generation_model VARCHAR(50) DEFAULT 'claude',
-    
-    -- Color palette
     color_palette JSONB DEFAULT '{}',
-    -- Example: [
-    --   {"name": "Primary", "hex": "#6B46C1", "rgb": "107,70,193", "usage": "buttons, headers"},
-    --   {"name": "Secondary", "hex": "#F6AD55", "usage": "accents"}
-    -- ]
-    
-    -- Font pairings
     font_pairings JSONB DEFAULT '{}',
-    -- Example: {
-    --   "heading": {"name": "Poppins", "google_url": "...", "weights": [400, 600]},
-    --   "body": {"name": "Open Sans", "google_url": "...", "weights": [400]}
-    -- }
-    
-    -- Brand guidelines (PDF stored as BLOB)
     brand_guidelines_pdf BYTEA,
-    
-    -- Status tracking
-    status VARCHAR(20) DEFAULT 'generating' CHECK (status IN ('generating', 'ready', 'failed')),
-    
-    -- Timestamps
     generated_at TIMESTAMPTZ,
     downloaded_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
     UNIQUE(business_id)
 );
 
-CREATE INDEX idx_brand_assets_business ON brand_assets(business_id);
-CREATE INDEX idx_brand_assets_status ON brand_assets(status);
+-- Add status column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'brand_assets' AND column_name = 'status') THEN
+        ALTER TABLE brand_assets ADD COLUMN status VARCHAR(20) DEFAULT 'generating';
+    END IF;
+END $$;
+
+-- Add check constraint separately (only if status column exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'brand_assets' AND constraint_name = 'brand_assets_status_check'
+    ) THEN
+        ALTER TABLE brand_assets ADD CONSTRAINT brand_assets_status_check 
+            CHECK (status IN ('generating', 'ready', 'failed'));
+    END IF;
+EXCEPTION WHEN undefined_column THEN
+    -- Status column doesn't exist, skip
+    NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_brand_assets_business ON brand_assets(business_id);
+
+-- Create status index only if status column exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'brand_assets' AND column_name = 'status') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_brand_assets_status') THEN
+            CREATE INDEX idx_brand_assets_status ON brand_assets(status);
+        END IF;
+    END IF;
+END $$;
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_brand_assets_updated_at ON brand_assets;
 CREATE TRIGGER update_brand_assets_updated_at 
     BEFORE UPDATE ON brand_assets 
     FOR EACH ROW 
@@ -77,56 +86,70 @@ CREATE TABLE IF NOT EXISTS brand_assets_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_brand_assets_logs_business ON brand_assets_logs(business_id);
-CREATE INDEX idx_brand_assets_logs_type ON brand_assets_logs(generation_type);
+CREATE INDEX IF NOT EXISTS idx_brand_assets_logs_business ON brand_assets_logs(business_id);
+CREATE INDEX IF NOT EXISTS idx_brand_assets_logs_type ON brand_assets_logs(generation_type);
 
 -- ============================================================================
 -- 3. GENERATED DOCUMENTS TABLE (Enhanced)
 -- ============================================================================
 
+-- Create table without status column initially
 CREATE TABLE IF NOT EXISTS generated_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id),
-    
-    -- Document info
     document_type VARCHAR(50) NOT NULL CHECK (document_type IN ('business_plan', 'pitch_deck', 'one_pager', 'brand_guidelines', 'financial_model')),
     document_name VARCHAR(255),
-    
-    -- File stored as BLOB (per requirements)
     file_data BYTEA,
     file_format VARCHAR(20) CHECK (file_format IN ('pdf', 'docx', 'pptx', 'xlsx')),
     file_size BIGINT,
-    
-    -- Version control
     version INTEGER DEFAULT 1,
-    
-    -- Generation params
     generation_params JSONB DEFAULT '{}',
     template_used VARCHAR(100),
-    
-    -- AI info
     ai_model VARCHAR(100),
     token_usage INTEGER,
-    
-    -- Status
-    status VARCHAR(20) DEFAULT 'generating' CHECK (status IN ('generating', 'ready', 'failed', 'expired')),
-    
-    -- Usage tracking
     download_count INTEGER DEFAULT 0,
-    
-    -- Timestamps
     generated_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
     UNIQUE(business_id, document_type, version)
 );
 
-CREATE INDEX idx_generated_docs_business ON generated_documents(business_id);
-CREATE INDEX idx_generated_docs_type ON generated_documents(document_type);
-CREATE INDEX idx_generated_docs_status ON generated_documents(status);
+-- Add status column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'generated_documents' AND column_name = 'status') THEN
+        ALTER TABLE generated_documents ADD COLUMN status VARCHAR(20) DEFAULT 'generating';
+    END IF;
+END $$;
+
+-- Add check constraint separately
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'generated_documents' AND constraint_name = 'generated_documents_status_check'
+    ) THEN
+        ALTER TABLE generated_documents ADD CONSTRAINT generated_documents_status_check 
+            CHECK (status IN ('generating', 'ready', 'failed', 'expired'));
+    END IF;
+EXCEPTION WHEN undefined_column THEN
+    NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_generated_docs_business ON generated_documents(business_id);
+CREATE INDEX IF NOT EXISTS idx_generated_docs_type ON generated_documents(document_type);
+
+-- Create status index conditionally
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'generated_documents' AND column_name = 'status') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_generated_docs_status') THEN
+            CREATE INDEX idx_generated_docs_status ON generated_documents(status);
+        END IF;
+    END IF;
+END $$;
 
 -- Trigger for updated_at
 CREATE TRIGGER update_generated_docs_updated_at 
@@ -138,38 +161,55 @@ CREATE TRIGGER update_generated_docs_updated_at
 -- 4. DATA ROOMS TABLE
 -- ============================================================================
 
+-- Create base table
 CREATE TABLE IF NOT EXISTS data_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-    
     name VARCHAR(255) NOT NULL,
-    description TEXT,
-    
-    -- Sharing
-    shareable_link VARCHAR(255) UNIQUE,
-    password_hash VARCHAR(255),
-    password_protected BOOLEAN DEFAULT FALSE,
-    
-    -- Access control
-    expires_at TIMESTAMPTZ,
-    access_count INTEGER DEFAULT 0,
-    download_limit INTEGER,
-    
-    -- Settings
-    watermark_enabled BOOLEAN DEFAULT FALSE,
-    watermark_text VARCHAR(255),
-    
-    -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_data_rooms_business ON data_rooms(business_id);
-CREATE INDEX idx_data_rooms_link ON data_rooms(shareable_link);
+-- Add columns if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'description') THEN
+        ALTER TABLE data_rooms ADD COLUMN description TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'shareable_link') THEN
+        ALTER TABLE data_rooms ADD COLUMN shareable_link VARCHAR(255) UNIQUE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'password_hash') THEN
+        ALTER TABLE data_rooms ADD COLUMN password_hash VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'password_protected') THEN
+        ALTER TABLE data_rooms ADD COLUMN password_protected BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'expires_at') THEN
+        ALTER TABLE data_rooms ADD COLUMN expires_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'access_count') THEN
+        ALTER TABLE data_rooms ADD COLUMN access_count INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'download_limit') THEN
+        ALTER TABLE data_rooms ADD COLUMN download_limit INTEGER;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'watermark_enabled') THEN
+        ALTER TABLE data_rooms ADD COLUMN watermark_enabled BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'watermark_text') THEN
+        ALTER TABLE data_rooms ADD COLUMN watermark_text VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'data_rooms' AND column_name = 'is_active') THEN
+        ALTER TABLE data_rooms ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_data_rooms_business ON data_rooms(business_id);
+CREATE INDEX IF NOT EXISTS idx_data_rooms_link ON data_rooms(shareable_link);
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_data_rooms_updated_at ON data_rooms;
 CREATE TRIGGER update_data_rooms_updated_at 
     BEFORE UPDATE ON data_rooms 
     FOR EACH ROW 
@@ -203,8 +243,8 @@ CREATE TABLE IF NOT EXISTS data_room_files (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_data_room_files_room ON data_room_files(data_room_id);
-CREATE INDEX idx_data_room_files_folder ON data_room_files(folder);
+CREATE INDEX IF NOT EXISTS idx_data_room_files_room ON data_room_files(data_room_id);
+CREATE INDEX IF NOT EXISTS idx_data_room_files_folder ON data_room_files(folder);
 
 -- Trigger for updated_at
 CREATE TRIGGER update_data_room_files_updated_at 
@@ -232,8 +272,8 @@ CREATE TABLE IF NOT EXISTS data_room_access_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_data_room_access_room ON data_room_access_logs(data_room_id);
-CREATE INDEX idx_data_room_access_created ON data_room_access_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_data_room_access_room ON data_room_access_logs(data_room_id);
+CREATE INDEX IF NOT EXISTS idx_data_room_access_created ON data_room_access_logs(created_at);
 
 -- ============================================================================
 -- 7. WEBSITE TEMPLATES TABLE
@@ -241,34 +281,72 @@ CREATE INDEX idx_data_room_access_created ON data_room_access_logs(created_at);
 
 CREATE TABLE IF NOT EXISTS website_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
-    template_code VARCHAR(50) UNIQUE NOT NULL,
     template_name VARCHAR(100) NOT NULL,
     description TEXT,
-    
-    -- Category
-    category VARCHAR(50) CHECK (category IN ('saas', 'ecommerce', 'marketplace', 'service', 'content', 'landing', 'portfolio')),
-    
-    -- Preview
+    category VARCHAR(50),
     thumbnail_data BYTEA,
     preview_url TEXT,
-    
-    -- Structure
     default_sections JSONB DEFAULT '[]',
-    -- Example: ["hero", "features", "about", "testimonials", "pricing", "contact", "footer"]
-    
-    -- Settings
     is_active BOOLEAN DEFAULT TRUE,
     is_premium BOOLEAN DEFAULT FALSE,
-    
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_website_templates_category ON website_templates(category);
-CREATE INDEX idx_website_templates_active ON website_templates(is_active);
+-- Add missing columns if they don't exist
+DO $$
+BEGIN
+    -- Handle case where 'code' column exists instead of 'template_code'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'template_code') 
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'code') THEN
+        ALTER TABLE website_templates RENAME COLUMN code TO template_code;
+    ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'template_code') THEN
+        ALTER TABLE website_templates ADD COLUMN template_code VARCHAR(50) UNIQUE;
+    END IF;
+    
+    -- Handle case where 'name' column exists instead of 'template_name'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'template_name') 
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'name') THEN
+        ALTER TABLE website_templates RENAME COLUMN name TO template_name;
+    ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'template_name') THEN
+        ALTER TABLE website_templates ADD COLUMN template_name VARCHAR(100) NOT NULL DEFAULT 'Template';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'category') THEN
+        ALTER TABLE website_templates ADD COLUMN category VARCHAR(50);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'default_sections') THEN
+        ALTER TABLE website_templates ADD COLUMN default_sections JSONB DEFAULT '[]';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'description') THEN
+        ALTER TABLE website_templates ADD COLUMN description TEXT;
+    END IF;
+END $$;
 
--- Seed default templates
-INSERT INTO website_templates (template_code, template_name, description, category, default_sections) VALUES
+-- Update existing rows with invalid categories to valid values
+UPDATE website_templates SET category = 'saas' WHERE category IS NULL OR category NOT IN ('saas', 'ecommerce', 'marketplace', 'service', 'content', 'landing', 'portfolio');
+
+-- Add check constraint for category
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'website_templates' AND constraint_name = 'website_templates_category_check'
+    ) THEN
+        ALTER TABLE website_templates ADD CONSTRAINT website_templates_category_check 
+            CHECK (category IN ('saas', 'ecommerce', 'marketplace', 'service', 'content', 'landing', 'portfolio'));
+    END IF;
+EXCEPTION WHEN undefined_column THEN
+    NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_website_templates_category ON website_templates(category);
+CREATE INDEX IF NOT EXISTS idx_website_templates_active ON website_templates(is_active);
+
+-- Seed default templates (only if template_code column exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'website_templates' AND column_name = 'template_code') THEN
+        INSERT INTO website_templates (template_code, template_name, description, category, default_sections) VALUES
 ('saas-modern', 'SaaS Modern', 'Clean, modern template for software products', 'saas', '["hero", "features", "pricing", "testimonials", "faq", "cta", "footer"]'),
 ('ecommerce-classic', 'E-commerce Classic', 'Product-focused template with cart functionality', 'ecommerce', '["hero", "products", "features", "about", "testimonials", "footer"]'),
 ('marketplace-clean', 'Marketplace Clean', 'Search and listing focused marketplace template', 'marketplace', '["hero", "search", "listings", "how-it-works", "footer"]'),
@@ -276,6 +354,8 @@ INSERT INTO website_templates (template_code, template_name, description, catego
 ('landing-conversion', 'Landing Conversion', 'High-conversion single page template', 'landing', '["hero", "problem", "solution", "features", "testimonials", "pricing", "cta"]'),
 ('content-blog', 'Content Blog', 'Blog and content-focused template', 'content', '["hero", "featured", "categories", "about", "subscribe", "footer"]')
 ON CONFLICT (template_code) DO NOTHING;
+    END IF;
+END $$;
 
 -- ============================================================================
 -- 8. WEBSITES TABLE (Enhanced)
@@ -393,10 +473,24 @@ JOIN businesses b ON ba.business_id = b.id;
 -- View for data room summary
 CREATE OR REPLACE VIEW data_room_summary AS
 SELECT 
-    dr.*,
+    dr.id,
+    dr.business_id,
+    dr.name,
+    dr.description,
+    dr.shareable_link,
+    dr.password_hash,
+    dr.password_protected,
+    dr.expires_at,
+    dr.access_count,
+    dr.download_limit,
+    dr.watermark_enabled,
+    dr.watermark_text,
+    dr.is_active,
+    dr.created_at,
+    dr.updated_at,
     b.name as business_name,
     (SELECT COUNT(*) FROM data_room_files drf WHERE drf.data_room_id = dr.id) as file_count,
-    (SELECT COUNT(*) FROM data_room_access_logs dral WHERE dral.data_room_id = dr.id) as access_count
+    (SELECT COUNT(*) FROM data_room_access_logs dral WHERE dral.data_room_id = dr.id) as total_access_count
 FROM data_rooms dr
 JOIN businesses b ON dr.business_id = b.id;
 

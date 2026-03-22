@@ -62,7 +62,7 @@ async fn get_credit_dashboard(
     
     let offer_responses: Vec<FinancingOfferResponse> = offers.into_iter()
         .map(|o| {
-            let is_eligible = o.required_credit_score_min.map_or(true, |min| current_score.overall_score >= min);
+            let is_eligible = o.required_credit_score_min.is_none_or(|min| current_score.overall_score >= min);
             FinancingOfferResponse {
                 id: o.id,
                 provider_name: o.provider_name,
@@ -171,7 +171,7 @@ async fn get_score_history(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(history)))
 }
@@ -194,7 +194,7 @@ async fn get_credit_report(
     .bind(business_id)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(report)))
 }
@@ -215,11 +215,11 @@ async fn list_financing_offers(
     )
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<FinancingOfferResponse> = offers.into_iter()
         .map(|o| {
-            let is_eligible = o.required_credit_score_min.map_or(true, |min| current_score.overall_score >= min);
+            let is_eligible = o.required_credit_score_min.is_none_or(|min| current_score.overall_score >= min);
             FinancingOfferResponse {
                 id: o.id,
                 provider_name: o.provider_name,
@@ -259,7 +259,7 @@ async fn list_applications(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Build a map of offers for lookup
     let offers = sqlx::query_as::<_, FinancingOffer>(
@@ -267,7 +267,7 @@ async fn list_applications(
     )
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let offer_map: std::collections::HashMap<uuid::Uuid, FinancingOffer> = offers
         .into_iter()
@@ -309,7 +309,7 @@ async fn apply_for_financing(
     .bind(body.offer_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorNotFound("Offer not found"))?;
     
     if let Some(min_score) = offer.required_credit_score_min {
@@ -332,7 +332,7 @@ async fn apply_for_financing(
     .bind(&body.application_data)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(application)))
 }
@@ -353,7 +353,7 @@ async fn get_application(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match application {
         Some(a) => Ok(HttpResponse::Ok().json(ApiResponse::success(a))),
@@ -370,7 +370,7 @@ async fn get_or_calculate_score(pool: &PgPool, business_id: Uuid) -> Result<Cred
     .bind(business_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     if let Some(score) = existing {
         return Ok(score);
@@ -388,7 +388,7 @@ async fn calculate_and_save_score(pool: &PgPool, business_id: Uuid) -> Result<Cr
     .bind(business_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Calculate component scores (simplified algorithm)
     let payment_history = 70i32;
@@ -450,7 +450,7 @@ async fn calculate_and_save_score(pool: &PgPool, business_id: Uuid) -> Result<Cr
     .bind(suggested_limit)
     .fetch_one(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Also record in history
     let previous_score = sqlx::query_scalar::<_, i32>(
@@ -582,7 +582,7 @@ async fn get_default_business_id(pool: &PgPool, user_id: Uuid) -> Result<Uuid, a
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorBadRequest("No business found"))?;
     
     Ok(business_id)

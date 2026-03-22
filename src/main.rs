@@ -60,9 +60,9 @@ async fn main() -> anyhow::Result<()> {
         AuthService::new(
             db_pool.clone(),
             &config.jwt_secret,
-            &config.google_client_id.clone().unwrap_or_default(),
-            &config.google_client_secret.clone().unwrap_or_default(),
-            &config.frontend_url.clone().unwrap_or_else(|| "http://localhost:5173".to_string()),
+            config.google_client_id.clone().unwrap_or_default(),
+            config.google_client_secret.clone().unwrap_or_default(),
+            config.frontend_url.clone().unwrap_or_else(|| "http://139.162.170.220:3000".to_string()),
         ).with_email_service(email_service)
     );
     let user_service = web::Data::new(UserService::new(db_pool.clone()));
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
     let startup_stack_service = web::Data::new(StartupStackService::new(db_pool.clone()));
     let subscription_service = web::Data::new(SubscriptionService::new(
         db_pool.clone(),
-        &config.stripe_secret_key.clone().unwrap_or_default(),
+        config.stripe_secret_key.clone().unwrap_or_default(),
     ));
     let document_service = web::Data::new(DocumentService::new(db_pool.clone()));
     let website_service = web::Data::new(WebsiteService::new(db_pool.clone()));

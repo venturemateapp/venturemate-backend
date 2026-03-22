@@ -173,7 +173,7 @@ async fn update_milestone(
     path: web::Path<(Uuid, Uuid)>,
     req: web::Json<UpdateMilestoneRequest>,
     startup_service: web::Data<StartupStackService>,
-    http_req: HttpRequest,
+    _http_req: HttpRequest,
 ) -> HttpResponse {
     let (startup_id, milestone_id) = path.into_inner();
 

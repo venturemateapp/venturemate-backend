@@ -24,7 +24,7 @@ pub async fn get_dashboard(
     let dashboard = service
         .get_dashboard(startup_id, user_id)
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(dashboard)))
 }
@@ -45,7 +45,7 @@ pub async fn get_quick_actions(
     let dashboard = service
         .get_dashboard(startup_id, user_id)
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(dashboard.next_actions)))
 }
@@ -66,7 +66,7 @@ pub async fn get_activity_feed(
     let dashboard = service
         .get_dashboard(startup_id, user_id)
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(ApiResponse::success(dashboard.activity_feed)))
 }

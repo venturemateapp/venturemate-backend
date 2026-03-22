@@ -536,11 +536,9 @@ impl WebsiteService {
             });
 
         // Create pages
-        let pages = vec![
-            ("home", "Home", "/", true, json!(default_sections)),
+        let pages = [("home", "Home", "/", true, json!(default_sections)),
             ("about", "About", "/about", true, json!([{"id": "about", "type": "about"}])),
-            ("contact", "Contact", "/contact", true, json!([{"id": "contact", "type": "contact"}])),
-        ];
+            ("contact", "Contact", "/contact", true, json!([{"id": "contact", "type": "contact"}]))];
 
         for (i, (key, name, slug, enabled, sections)) in pages.iter().enumerate() {
             sqlx::query(

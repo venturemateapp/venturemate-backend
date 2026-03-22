@@ -4,6 +4,7 @@
 //! and secure investor data rooms.
 
 use chrono::{DateTime, Utc};
+use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -251,7 +252,7 @@ pub struct TeamMember {
     pub photo_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FinancialProjections {
     pub years: i32,
     pub revenue_projections: Vec<YearProjection>,
@@ -580,7 +581,7 @@ pub struct DataRoomFileResponse {
 pub struct DataRoomAccessLog {
     pub id: Uuid,
     pub data_room_id: Uuid,
-    pub ip_address: Option<std::net::IpAddr>,
+    pub ip_address: Option<IpNetwork>,
     pub user_agent: Option<String>,
     pub email: Option<String>,
     pub action: String,

@@ -20,9 +20,9 @@ jobs:
       - name: Deploy to remote server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          password: ${{ secrets.PASS }}
+          host: 139.162.170.220
+          username: root
+          password: startupos.2026
           script: |
             set -e
             

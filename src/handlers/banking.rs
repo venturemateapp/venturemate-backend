@@ -134,7 +134,7 @@ async fn list_accounts(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<BankAccountResponse> = accounts.into_iter()
         .map(|a| BankAccountResponse {
@@ -179,7 +179,7 @@ async fn create_account(
     .bind(&body.iban)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(account)))
 }
@@ -200,7 +200,7 @@ async fn get_account(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match account {
         Some(a) => Ok(HttpResponse::Ok().json(ApiResponse::success(a))),
@@ -222,7 +222,7 @@ async fn delete_account(
         .bind(business_id)
         .execute(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::NoContent().finish())
 }
@@ -246,7 +246,7 @@ async fn list_transactions(
     .bind(offset)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(transactions)))
 }
@@ -265,7 +265,7 @@ async fn list_integrations(
     .bind(business_id)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(integrations)))
 }
@@ -294,7 +294,7 @@ async fn connect_integration(
     .bind(body.settings.clone())
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(integration)))
 }
@@ -313,7 +313,7 @@ async fn disconnect_integration(
         .bind(business_id)
         .execute(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::NoContent().finish())
 }
@@ -337,7 +337,7 @@ async fn list_invoices(
     .bind(offset)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let responses: Vec<BankInvoiceResponse> = invoices.into_iter()
         .map(|i| BankInvoiceResponse {
@@ -395,7 +395,7 @@ async fn create_invoice(
     .bind(line_items_json)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(invoice)))
 }
@@ -416,7 +416,7 @@ async fn get_invoice(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match invoice {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -440,7 +440,7 @@ async fn send_invoice(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match invoice {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -469,7 +469,7 @@ async fn record_payment(
     .bind(&body.payment_method)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match invoice {
         Some(i) => Ok(HttpResponse::Ok().json(ApiResponse::success(i))),
@@ -558,7 +558,7 @@ async fn get_default_business_id(pool: &PgPool, user_id: Uuid) -> Result<Uuid, a
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorBadRequest("No business found"))?;
     
     Ok(business_id)

@@ -4,18 +4,17 @@
 
 use crate::utils::{AppError, Result};
 use crate::models::marketplace::{
-    AiContent, AiContentCalendarItem, AiContentCalendarResponse, AiContentResponse, AiContentStatus, CategoryInfo,
+    AiContent, AiContentCalendarItem, AiContentCalendarResponse, AiContentResponse, CategoryInfo,
     CreateOrderRequest, CreateOrderResponse, GenerateAiContentRequest,
-    GenerateAiContentResponse, ListServiceListingsRequest, ListServiceListingsResponse,
-    MarketplaceMessage, MarketplaceMessageResponse, MarketplaceOrder, MarketplaceReview, OrderResponse,
-    OrderServiceInfo, OrderStatus, ReviewResponse, ScheduleAiContentRequest, ServicePricingInfo,
+    GenerateAiContentResponse, ListServiceListingsRequest, ListServiceListingsResponse, MarketplaceMessageResponse, OrderResponse,
+    OrderServiceInfo, ReviewResponse, ScheduleAiContentRequest, ServicePricingInfo,
     SendProviderMessageRequest, ServiceCategory, ServiceListing, ServiceListingResponse, UpdateContentRequest,
     build_social_content_prompt,
 };
 use crate::services::ai_service::AIService;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::error;
 use uuid::Uuid;
 
 pub struct MarketplaceService {
@@ -81,7 +80,7 @@ impl MarketplaceService {
                 service_name: listing.service_name,
                 description: listing.description.unwrap_or_default(),
                 pricing: serde_json::from_value(listing.pricing.unwrap_or_default()).unwrap_or(ServicePricingInfo {
-                    base_price: rust_decimal::Decimal::new(0, 0),
+                    base_price: "0".to_string(),
                     currency: "USD".to_string(),
                     price_tiers: vec![],
                 }),
@@ -149,7 +148,7 @@ impl MarketplaceService {
 
         let pricing: ServicePricingInfo = serde_json::from_value(service.pricing.unwrap_or_default())
             .unwrap_or(ServicePricingInfo {
-                base_price: rust_decimal::Decimal::new(0, 0),
+                base_price: "0".to_string(),
                 currency: "USD".to_string(),
                 price_tiers: vec![],
             });
@@ -166,8 +165,8 @@ impl MarketplaceService {
         .bind(buyer_id)
         .bind(service.provider_id)
         .bind(&req.requirements)
-        .bind(serde_json::to_value(&req.attachments.unwrap_or_default()).unwrap_or_default())
-        .bind(pricing.base_price)
+        .bind(serde_json::to_value(req.attachments.unwrap_or_default()).unwrap_or_default())
+        .bind(&pricing.base_price)
         .bind(&pricing.currency)
         .execute(&self.db)
         .await
@@ -176,16 +175,20 @@ impl MarketplaceService {
         Ok(CreateOrderResponse {
             order_id,
             status: "pending".to_string(),
-            total_amount: pricing.base_price,
+            total_amount: pricing.base_price.clone(),
             message: "Order created successfully".to_string(),
         })
     }
 
     /// List orders for a business
     pub async fn list_orders(&self, business_id: Uuid) -> Result<Vec<OrderResponse>> {
-        let orders: Vec<(MarketplaceOrder, String, String)> = sqlx::query_as(
-            "SELECT o.*, s.service_name, s.service_category FROM marketplace_orders o
+        let rows = sqlx::query(
+            "SELECT o.id, o.business_id, o.service_id, o.buyer_id, o.provider_id, o.requirements, 
+                    o.total_amount, o.currency, o.status, o.delivery_date, o.delivered_at, o.created_at,
+                    s.service_name, s.service_category, COALESCE(p.business_name, 'Unknown') as provider_name 
+             FROM marketplace_orders o
              JOIN service_listings s ON o.service_id = s.id
+             LEFT JOIN businesses p ON s.provider_id = p.id
              WHERE o.business_id = $1 ORDER BY o.created_at DESC"
         )
         .bind(business_id)
@@ -193,24 +196,29 @@ impl MarketplaceService {
         .await
         .map_err(AppError::Database)?;
 
-        Ok(orders.into_iter().map(|(o, service_name, category)| OrderResponse {
-            id: o.id,
-            business_id: o.business_id,
-            service: OrderServiceInfo {
-                id: o.service_id,
-                name: service_name,
-                category,
-            },
-            buyer_id: o.buyer_id,
-            provider_id: o.provider_id,
-            requirements: o.requirements.unwrap_or_default(),
-            total_amount: o.total_amount,
-            currency: o.currency,
-            status: o.status,
-            delivery_date: o.delivery_date,
-            delivered_at: o.delivered_at,
-            created_at: o.created_at,
-        }).collect())
+        let mut orders = Vec::new();
+        for row in rows {
+            orders.push(OrderResponse {
+                id: row.try_get("id").map_err(AppError::Database)?,
+                business_id: row.try_get("business_id").map_err(AppError::Database)?,
+                service: OrderServiceInfo {
+                    id: row.try_get("service_id").map_err(AppError::Database)?,
+                    name: row.try_get("service_name").map_err(AppError::Database)?,
+                    category: row.try_get("service_category").map_err(AppError::Database)?,
+                    provider_name: row.try_get("provider_name").map_err(AppError::Database)?,
+                },
+                buyer_id: row.try_get("buyer_id").map_err(AppError::Database)?,
+                provider_id: row.try_get("provider_id").map_err(AppError::Database)?,
+                requirements: row.try_get::<Option<String>, _>("requirements").map_err(AppError::Database)?.unwrap_or_default(),
+                total_amount: row.try_get::<String, _>("total_amount").map_err(AppError::Database)?,
+                currency: row.try_get("currency").map_err(AppError::Database)?,
+                status: row.try_get("status").map_err(AppError::Database)?,
+                delivery_date: row.try_get("delivery_date").map_err(AppError::Database)?,
+                delivered_at: row.try_get("delivered_at").map_err(AppError::Database)?,
+                created_at: row.try_get("created_at").map_err(AppError::Database)?,
+            });
+        }
+        Ok(orders)
     }
 
     // =================================================================================
@@ -300,8 +308,9 @@ impl MarketplaceService {
 
     /// Get messages for an order
     pub async fn get_messages(&self, order_id: Uuid) -> Result<Vec<MarketplaceMessageResponse>> {
-        let messages: Vec<(MarketplaceMessage, String)> = sqlx::query_as(
-            "SELECT m.*, COALESCE(up.first_name || ' ' || up.last_name, u.email) as sender_name
+        let rows = sqlx::query(
+            "SELECT m.id, m.order_id, m.sender_id, m.message, m.attachment_url, m.is_read, m.created_at,
+                    COALESCE(up.first_name || ' ' || up.last_name, u.email) as sender_name
              FROM marketplace_messages m
              JOIN users u ON m.sender_id = u.id
              LEFT JOIN user_profiles up ON u.id = up.user_id
@@ -312,15 +321,19 @@ impl MarketplaceService {
         .await
         .map_err(AppError::Database)?;
 
-        Ok(messages.into_iter().map(|(m, sender_name)| MarketplaceMessageResponse {
-            id: m.id,
-            sender_id: m.sender_id,
-            sender_name,
-            message: m.message,
-            attachment_url: m.attachment_url,
-            is_read: m.is_read,
-            created_at: m.created_at,
-        }).collect())
+        let mut messages = Vec::new();
+        for row in rows {
+            messages.push(MarketplaceMessageResponse {
+                id: row.try_get("id").map_err(AppError::Database)?,
+                sender_id: row.try_get("sender_id").map_err(AppError::Database)?,
+                sender_name: row.try_get("sender_name").map_err(AppError::Database)?,
+                message: row.try_get("message").map_err(AppError::Database)?,
+                attachment_url: row.try_get("attachment_url").map_err(AppError::Database)?,
+                is_read: row.try_get("is_read").map_err(AppError::Database)?,
+                created_at: row.try_get("created_at").map_err(AppError::Database)?,
+            });
+        }
+        Ok(messages)
     }
 
     // =================================================================================
@@ -391,7 +404,8 @@ impl MarketplaceService {
         let response = ai_service.generate_text(
             "You are a social media expert. Create engaging, platform-appropriate content.",
             &prompt,
-            3000
+            3000,
+            Some(0.7)
         ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
         // Parse and save content
@@ -451,7 +465,7 @@ impl MarketplaceService {
             "UPDATE ai_content SET generated_content = $1, hashtags = $2, updated_at = NOW() WHERE id = $3"
         )
         .bind(&req.content)
-        .bind(serde_json::to_value(&req.hashtags.unwrap_or_default()).unwrap_or_default())
+        .bind(serde_json::to_value(req.hashtags.unwrap_or_default()).unwrap_or_default())
         .bind(content_id)
         .execute(&self.db)
         .await

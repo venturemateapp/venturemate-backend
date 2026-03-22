@@ -7,14 +7,14 @@ use crate::utils::{AppError, Result};
 use crate::models::recommendations::{
     ActOnRecommendationRequest, ActOnRecommendationResponse, DismissRecommendationRequest,
     DismissRecommendationResponse, ListRecommendationsRequest, ListRecommendationsResponse,
-    Recommendation, RecommendationAction, RecommendationContent, RecommendationContentRequest,
-    RecommendationPriority, RecommendationResponse, RecommendationStatus, RecommendationTemplate,
+    Recommendation, RecommendationContent, RecommendationContentRequest,
+    RecommendationPriority, RecommendationResponse,
     RecommendationType, RefreshRecommendationsResponse, TriggerCondition, get_recommendation_templates,
 };
 use crate::services::ai_service::AIService;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 pub struct RecommendationsService {
@@ -340,7 +340,8 @@ Return as JSON with keys: title, description, impact, call_to_action"#,
         let response = self.ai_service.generate_text(
             "You are a helpful startup advisor. Provide actionable, specific advice.",
             &prompt,
-            500
+            500,
+            Some(0.7)
         ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
         let content: RecommendationContent = serde_json::from_str(&response)

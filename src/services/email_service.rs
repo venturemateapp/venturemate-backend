@@ -48,6 +48,7 @@ pub struct EmailLogEntry {
 }
 
 /// Email Service
+#[derive(Clone)]
 pub struct EmailService {
     db: PgPool,
     smtp_transport: Option<AsyncSmtpTransport<Tokio1Executor>>,
@@ -178,7 +179,7 @@ impl EmailService {
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
         
         let reset_url = format!("{}/auth/reset-password?token={}", frontend_url, reset_token);
         
@@ -211,7 +212,7 @@ impl EmailService {
         first_name: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
         
         let payload = EmailPayload {
             to: email.to_string(),
@@ -244,7 +245,7 @@ impl EmailService {
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
         
         let extra_data = serde_json::json!({
             "ip_address": ip_address,
@@ -281,9 +282,9 @@ impl EmailService {
         verification_token: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
         
-        let verify_url = format!("{}/auth/verify-email?token={}", frontend_url, verification_token);
+        let verify_url = format!("{}/auth/verify-email?token={}&email={}", frontend_url, verification_token, email);
         
         let payload = EmailPayload {
             to: email.to_string(),
@@ -340,7 +341,7 @@ impl EmailService {
         user_id: Uuid,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
 
         let payload = EmailPayload {
             to: email.to_string(),
@@ -452,7 +453,7 @@ impl EmailService {
         action_text: Option<&str>,
     ) -> String {
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://139.162.170.220:3000".to_string());
         
         let action_button = if let (Some(url), Some(text)) = (action_url, action_text) {
             format!(

@@ -113,7 +113,7 @@ async fn list_contacts(
     .bind(offset)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(contacts)))
 }
@@ -142,7 +142,7 @@ async fn create_contact(
     .bind(&body.notes)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(contact)))
 }
@@ -163,7 +163,7 @@ async fn get_contact(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match contact {
         Some(c) => Ok(HttpResponse::Ok().json(ApiResponse::success(c))),
@@ -200,7 +200,7 @@ async fn update_contact(
     .bind(&body.notes)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match contact {
         Some(c) => Ok(HttpResponse::Ok().json(ApiResponse::success(c))),
@@ -222,7 +222,7 @@ async fn delete_contact(
         .bind(business_id)
         .execute(pool.get_ref())
         .await
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::NoContent().finish())
 }
@@ -246,7 +246,7 @@ async fn list_deals(
     .bind(offset)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(deals)))
 }
@@ -276,7 +276,7 @@ async fn create_deal(
     .bind(body.expected_close_date)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(deal)))
 }
@@ -297,7 +297,7 @@ async fn get_deal(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match deal {
         Some(d) => Ok(HttpResponse::Ok().json(ApiResponse::success(d))),
@@ -333,7 +333,7 @@ async fn update_deal(
     .bind(body.expected_close_date)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match deal {
         Some(d) => Ok(HttpResponse::Ok().json(ApiResponse::success(d))),
@@ -360,7 +360,7 @@ async fn update_deal_stage(
     .bind(stage)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match deal {
         Some(d) => Ok(HttpResponse::Ok().json(ApiResponse::success(d))),
@@ -387,7 +387,7 @@ async fn list_activities(
     .bind(offset)
     .fetch_all(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok().json(ApiResponse::success(activities)))
 }
@@ -415,7 +415,7 @@ async fn create_activity(
     .bind(user_id)
     .fetch_one(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Created().json(ApiResponse::success(activity)))
 }
@@ -436,7 +436,7 @@ async fn complete_activity(
     .bind(business_id)
     .fetch_optional(pool.get_ref())
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    .map_err(actix_web::error::ErrorInternalServerError)?;
     
     match activity {
         Some(a) => Ok(HttpResponse::Ok().json(ApiResponse::success(a))),
@@ -451,7 +451,7 @@ async fn get_default_business_id(pool: &PgPool, user_id: Uuid) -> Result<Uuid, a
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
+    .map_err(actix_web::error::ErrorInternalServerError)?
     .ok_or_else(|| actix_web::error::ErrorBadRequest("No business found"))?;
     
     Ok(business_id)

@@ -1,6 +1,7 @@
 // Auth-related models complementing user.rs
 
 use chrono::{DateTime, Utc};
+use ipnetwork::IpNetwork;
 use serde::{Deserialize, Serialize};
 
 use uuid::Uuid;
@@ -107,7 +108,7 @@ pub struct RateLimitLog {
     pub identifier: String,
     pub identifier_type: String,
     pub action: String,
-    pub ip_address: Option<String>,
+    pub ip_address: Option<IpNetwork>,
     pub user_agent: Option<String>,
     pub allowed: bool,
     pub blocked_until: Option<DateTime<Utc>>,

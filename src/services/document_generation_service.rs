@@ -5,20 +5,18 @@
 
 use crate::utils::{AppError, Result};
 use crate::models::documents::{
-    BusinessPlanContent, CompetitiveAnalysis, Competitor,
+    BusinessPlanContent, CompetitiveAnalysis,
     CompanyOverview, MarketingSales, OperationsSection, ManagementTeam,
-    DocumentStatusResponse, DocumentType, ExecutiveSummary, ExpenseCategory,
-    Feature, FinancialProjections, FundingRequest,
-    FundUse, GeneratedDocument, GeneratedDocumentResponse, GenerateBusinessPlanRequest,
-    GenerateDocumentResponse, GeneratePitchDeckRequest, MarketAnalysis, MarketSize,
-    Metric, PitchDeckContent, PitchDeckSlide, PricingTier, ProblemStatement,
-    RevenueStream, SolutionSection, TargetSegment, TeamMember, YearProjection,
+    DocumentStatusResponse, DocumentType, ExecutiveSummary, FinancialProjections, GeneratedDocument, GeneratedDocumentResponse, GenerateBusinessPlanRequest,
+    GenerateDocumentResponse, GeneratePitchDeckRequest, MarketAnalysis, PitchDeckContent, PitchDeckSlide, ProblemStatement, SolutionSection, TeamMember,
     get_pitch_deck_templates, BusinessModelSection, PitchDeckTemplate,
+    TitleSlide, ProblemSlide, SolutionSlide, ProductSlide, MarketSlide,
+    BusinessModelSlide, CompetitionSlide, TractionSlide, TeamSlide, FinancialsSlide, FundingSlide,
 };
 use crate::services::ai_service::AIService;
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 pub struct DocumentGenerationService {
@@ -174,7 +172,7 @@ impl DocumentGenerationService {
                 file_size: doc.file_size.unwrap_or(0),
                 version: doc.version,
                 template_used: doc.template_used,
-                status: doc.status,
+                status: doc.status.clone(),
                 download_count: doc.download_count,
                 download_url: Some(format!("/api/v1/documents/{}/download", doc.id)),
                 generated_at: doc.generated_at.unwrap_or(doc.created_at),
@@ -185,7 +183,7 @@ impl DocumentGenerationService {
         };
 
         Ok(DocumentStatusResponse {
-            status: doc.status,
+            status: doc.status.clone(),
             document: document_response,
             error_message: None,
             progress_percent: if doc.status == "generating" { Some(50) } else { None },
@@ -437,6 +435,69 @@ impl DocumentGenerationService {
 
         // Compile pitch deck
         let pitch_deck = PitchDeckContent {
+            title_slide: TitleSlide {
+                company_name: business.name.clone(),
+                tagline: business.tagline.clone(),
+                logo_url: None,
+                founder_names: String::new(),
+                contact_info: String::new(),
+            },
+            problem_slide: ProblemSlide {
+                problem_statement: String::new(),
+                visual_description: String::new(),
+                market_size: String::new(),
+            },
+            solution_slide: SolutionSlide {
+                solution_description: String::new(),
+                key_benefits: vec![],
+                visual_description: String::new(),
+            },
+            product_slide: ProductSlide {
+                product_name: String::new(),
+                description: String::new(),
+                key_features: vec![],
+                demo_placeholder: String::new(),
+            },
+            market_slide: MarketSlide {
+                tam: String::new(),
+                sam: String::new(),
+                som: String::new(),
+                growth_rate: String::new(),
+                target_customer: String::new(),
+            },
+            business_model_slide: BusinessModelSlide {
+                how_we_make_money: String::new(),
+                pricing_tiers: vec![],
+                unit_economics: String::new(),
+            },
+            competition_slide: CompetitionSlide {
+                competitive_matrix: vec![],
+                moat_description: String::new(),
+                ip_description: None,
+            },
+            traction_slide: TractionSlide {
+                key_achievements: vec![],
+                metrics: vec![],
+                partnerships: vec![],
+                press: vec![],
+            },
+            team_slide: TeamSlide {
+                founders: vec![],
+                key_hires: vec![],
+                advisors: vec![],
+            },
+            financials_slide: FinancialsSlide {
+                revenue_projection_chart: String::new(),
+                year_3_revenue: String::new(),
+                key_metrics: vec![],
+                funding_to_date: None,
+            },
+            funding_slide: FundingSlide {
+                amount_raising: String::new(),
+                use_of_funds: vec![],
+                timeline: String::new(),
+                investor_benefits: vec![],
+            },
             slides: vec![
                 title_slide,
                 problem_slide,
@@ -514,6 +575,7 @@ impl DocumentGenerationService {
 // =================================================================================
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct BusinessDetails {
     id: Uuid,
     name: String,
@@ -546,7 +608,8 @@ async fn generate_executive_summary(
     let response = ai_service.generate_text(
         "You are a professional business plan writer. Generate concise, investor-ready content.",
         &prompt,
-        1000
+        1000,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     // Parse JSON response
@@ -567,7 +630,8 @@ async fn generate_problem_statement(
     let response = ai_service.generate_text(
         "You are a business analyst. Clearly articulate the problem being solved.",
         &prompt,
-        800
+        800,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -590,7 +654,8 @@ async fn generate_solution_section(
     let response = ai_service.generate_text(
         "You are a product strategist. Describe the solution compellingly.",
         &prompt,
-        1000
+        1000,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -613,7 +678,8 @@ async fn generate_market_analysis(
     let response = ai_service.generate_text(
         "You are a market research analyst. Provide realistic market sizing.",
         &prompt,
-        1200
+        1200,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -634,7 +700,8 @@ async fn generate_competitive_analysis(
     let response = ai_service.generate_text(
         "You are a competitive strategist. Be objective and thorough.",
         &prompt,
-        1000
+        1000,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -655,7 +722,8 @@ async fn generate_business_model_section(
     let response = ai_service.generate_text(
         "You are a business model expert. Be specific about revenue generation.",
         &prompt,
-        800
+        800,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -699,7 +767,8 @@ async fn generate_financial_projections(
     let response = ai_service.generate_text(
         "You are a financial analyst. Create realistic projections with conservative estimates.",
         &prompt,
-        1200
+        1200,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     serde_json::from_str(&response)
@@ -720,7 +789,8 @@ async fn generate_pitch_problem_slide(
     let response = ai_service.generate_text(
         "You are creating a pitch deck. Be concise and impactful.",
         &prompt,
-        400
+        400,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     let content: serde_json::Value = serde_json::from_str(&response)
@@ -745,7 +815,8 @@ async fn generate_pitch_solution_slide(
     let response = ai_service.generate_text(
         "You are creating a pitch deck. Be concise and impactful.",
         &prompt,
-        400
+        400,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     let content: serde_json::Value = serde_json::from_str(&response)
@@ -770,7 +841,8 @@ async fn generate_pitch_market_slide(
     let response = ai_service.generate_text(
         "You are creating a pitch deck. Show the opportunity clearly.",
         &prompt,
-        400
+        400,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     let content: serde_json::Value = serde_json::from_str(&response)
@@ -795,7 +867,8 @@ async fn generate_pitch_business_model_slide(
     let response = ai_service.generate_text(
         "You are creating a pitch deck. Show how you make money.",
         &prompt,
-        400
+        400,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     let content: serde_json::Value = serde_json::from_str(&response)
@@ -836,7 +909,8 @@ async fn generate_pitch_traction_slide(
     let response = ai_service.generate_text(
         "You are creating a pitch deck. Show progress and validation.",
         &prompt,
-        400
+        400,
+        Some(0.7)
     ).await.map_err(|e| AppError::AiGeneration(e.to_string()))?;
 
     let content: serde_json::Value = serde_json::from_str(&response)
@@ -911,7 +985,7 @@ fn format_business_plan_as_html(plan: &BusinessPlanContent, business: &BusinessD
     )
 }
 
-fn format_pitch_deck_as_html(deck: &PitchDeckContent, business: &BusinessDetails, template: &str) -> String {
+fn format_pitch_deck_as_html(deck: &PitchDeckContent, business: &BusinessDetails, _template: &str) -> String {
     format!(
         r#"<!DOCTYPE html>
 <html>
@@ -938,7 +1012,7 @@ fn format_pitch_deck_as_html(deck: &PitchDeckContent, business: &BusinessDetails
         business.name,
         business.name,
         business.tagline,
-        deck.slides.iter().map(|slide| format_slide_html(slide)).collect::<String>()
+        deck.slides.iter().map(format_slide_html).collect::<String>()
     )
 }
 

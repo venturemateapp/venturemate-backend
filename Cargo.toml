@@ -11,7 +11,7 @@ actix-web-httpauth = "0.8"
 actix-multipart = "0.6"
 
 # Database - using rustls to avoid OpenSSL dependency
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate", "ipnetwork"] }
 
 # Async runtime
 tokio = { version = "1.36", features = ["full"] }
@@ -72,6 +72,9 @@ base64 = "0.22"
 
 # Decimal numbers  
 rust_decimal = { version = "1.35", features = ["serde"] }
+
+# IP Network types for PostgreSQL INET
+ipnetwork = "0.20"
 
 # Email
 lettre = { version = "0.11", default-features = false, features = ["tokio1", "tokio1-rustls-tls", "smtp-transport", "builder"] }
