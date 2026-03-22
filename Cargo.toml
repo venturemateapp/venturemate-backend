@@ -1,0 +1,82 @@
+[package]
+name = "bcknd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+actix-web = { version = "4.5", features = ["rustls"] }
+actix-cors = "0.7"
+actix-web-httpauth = "0.8"
+actix-multipart = "0.6"
+
+# Database - using rustls to avoid OpenSSL dependency
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
+
+# Async runtime
+tokio = { version = "1.36", features = ["full"] }
+futures = "0.3"
+
+# Environment variables
+dotenvy = "0.15"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "3.6"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Authentication
+jsonwebtoken = "9.2"
+argon2 = "0.5"
+password-hash = "0.5"
+rand = "0.8"
+
+# Validation
+validator = { version = "0.16", features = ["derive"] }
+
+# Utilities
+uuid = { version = "1.7", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+config = "0.14"
+
+
+# AI/Claude - using rustls
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+
+# Handlebars for templates
+handlebars = "5.1"
+
+# TLS
+rustls = "0.21"
+
+# Slug generation
+slug = "0.1"
+
+# URL encoding
+urlencoding = "2.1"
+
+# File compression
+flate2 = "1.0"
+
+# Hashing
+sha2 = "0.10"
+base64 = "0.22"
+
+# Decimal numbers  
+rust_decimal = { version = "1.35", features = ["serde"] }
+
+# Email
+lettre = { version = "0.11", default-features = false, features = ["tokio1", "tokio1-rustls-tls", "smtp-transport", "builder"] }
+
+[dev-dependencies]
+# Testing
+mockall = "0.12"
+tokio-test = "0.4"
