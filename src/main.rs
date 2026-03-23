@@ -69,10 +69,11 @@ async fn main() -> anyhow::Result<()> {
     let onboarding_service = web::Data::new(OnboardingService::new(db_pool.clone()));
     let onboarding_wizard_service = web::Data::new(OnboardingWizardService::new(db_pool.clone()));
     let business_service = web::Data::new(BusinessService::new(db_pool.clone()));
-    let ai_service = web::Data::new(AIService::new(
-        &config.anthropic_api_key,
-        db_pool.clone(),
-    ));
+    
+    // Create shared AI service for all AI-dependent services
+    let ai_service = std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone()));
+    let ai_service_data = web::Data::new(ai_service.clone());
+    
     let startup_stack_service = web::Data::new(StartupStackService::new(db_pool.clone()));
     let subscription_service = web::Data::new(SubscriptionService::new(
         db_pool.clone(),
@@ -81,32 +82,36 @@ async fn main() -> anyhow::Result<()> {
     let document_service = web::Data::new(DocumentService::new(db_pool.clone()));
     let website_service = web::Data::new(WebsiteService::new(db_pool.clone()));
     let file_storage_service = web::Data::new(FileStorageService::new(db_pool.clone()));
-    let ai_conversation_service = web::Data::new(AiConversationService::new(db_pool.clone()));
+    
+    let ai_conversation_service = web::Data::new(AiConversationService::new(
+        db_pool.clone(),
+        ai_service.clone(),
+    ));
     let ai_startup_engine_service = web::Data::new(AiStartupEngineService::new(
         db_pool.clone(),
-        AIService::new(&config.anthropic_api_key, db_pool.clone()),
+        (*ai_service).clone(),
     ));
     let cofounder_service = web::Data::new(CofounderService::new(db_pool.clone()));
     let branding_service = web::Data::new(BrandingService::new(
         db_pool.clone(),
-        std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone())),
+        ai_service.clone(),
     ));
     let document_generation_service = web::Data::new(DocumentGenerationService::new(
         db_pool.clone(),
-        std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone())),
+        ai_service.clone(),
     ));
     let data_room_service = web::Data::new(DataRoomService::new(db_pool.clone()));
     let health_score_service = web::Data::new(HealthScoreService::new(
         db_pool.clone(),
-        std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone())),
+        ai_service.clone(),
     ));
     let recommendations_service = web::Data::new(RecommendationsService::new(
         db_pool.clone(),
-        std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone())),
+        ai_service.clone(),
     ));
     let marketplace_service = web::Data::new(MarketplaceService::new(
         db_pool.clone(),
-        std::sync::Arc::new(AIService::new(&config.anthropic_api_key, db_pool.clone())),
+        ai_service.clone(),
     ));
 
     // Get server address

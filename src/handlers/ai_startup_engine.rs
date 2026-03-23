@@ -12,7 +12,7 @@ use crate::utils::{get_user_id, success_response};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/ai")
+        web::scope("/ai-engine")
             .service(process_startup)
             .service(get_generation_status)
             .service(regenerate_field)

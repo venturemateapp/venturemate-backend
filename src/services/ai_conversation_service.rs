@@ -1,6 +1,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 use chrono::Utc;
+use std::sync::Arc;
+use tracing;
 
 use crate::models::{
     AiConversation, AiChatMessage, ChatMessageResponse, ChatWithAiResponse,
@@ -8,15 +10,17 @@ use crate::models::{
     AiGeneratedContent, GenerateContentRequest, RegenerateContentRequest,
     GeneratedContentResponse, HealthScoreResponse, RecommendationResponse,
 };
+use crate::services::AIService;
 use crate::utils::{AppError, Result};
 
 pub struct AiConversationService {
     db: PgPool,
+    ai_service: Arc<AIService>,
 }
 
 impl AiConversationService {
-    pub fn new(db: PgPool) -> Self {
-        Self { db }
+    pub fn new(db: PgPool, ai_service: Arc<AIService>) -> Self {
+        Self { db, ai_service }
     }
 
     // ============================================
@@ -129,7 +133,7 @@ impl AiConversationService {
         req: SendMessageRequest,
     ) -> Result<ChatWithAiResponse> {
         // Verify conversation belongs to user
-        let _conversation = sqlx::query_as::<_, AiConversation>(
+        let conversation = sqlx::query_as::<_, AiConversation>(
             "SELECT * FROM ai_conversations WHERE id = $1 AND user_id = $2"
         )
         .bind(conversation_id)
@@ -151,14 +155,59 @@ impl AiConversationService {
         .fetch_one(&self.db)
         .await?;
 
-        // TODO: Integrate with Claude API for AI response
-        let ai_content = format!("I received your message: '{}'", req.content);
+        // Get conversation history for context
+        let history = sqlx::query_as::<_, AiChatMessage>(
+            r#"
+            SELECT * FROM ai_chat_messages 
+            WHERE conversation_id = $1 
+            ORDER BY created_at ASC
+            LIMIT 10
+            "#
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.db)
+        .await?;
+
+        // Build conversation context
+        let mut context = String::new();
+        for msg in &history {
+            let role = if msg.role == "user" { "User" } else { "Assistant" };
+            context.push_str(&format!("{}: {}\n", role, msg.content));
+        }
+
+        // System prompt based on session type
+        let system_prompt = match conversation.session_type.as_str() {
+            "startup_advice" => "You are a knowledgeable startup advisor specializing in African markets. Provide practical, actionable advice for entrepreneurs. Be concise but thorough.",
+            "business_plan" => "You are a business planning expert. Help users create comprehensive business plans with focus on African market realities.",
+            "legal_compliance" => "You are a legal and compliance advisor for African startups. Provide guidance on regulations, registrations, and compliance requirements.",
+            "fundraising" => "You are a fundraising advisor with expertise in African startup ecosystems. Help with pitch decks, investor relations, and funding strategies.",
+            "marketing" => "You are a marketing strategist for African startups. Provide advice on growth, customer acquisition, and brand building.",
+            _ => "You are VentureMate, an AI assistant specialized in helping African entrepreneurs build and grow successful businesses. Be helpful, practical, and encouraging.",
+        };
+
+        // Call Claude AI
+        let full_prompt = format!("{}
+
+User's latest message: {}", context, req.content);
+        
+        let ai_content = match self.ai_service.generate_text(
+            system_prompt,
+            &full_prompt,
+            2000,
+            Some(0.7)
+        ).await {
+            Ok(response) => response,
+            Err(e) => {
+                tracing::error!("Claude API error: {}", e);
+                "I apologize, but I'm having trouble connecting to my AI systems right now. Please try again in a moment.".to_string()
+            }
+        };
 
         // Save AI response
         let ai_msg = sqlx::query_as::<_, AiChatMessage>(
             r#"
             INSERT INTO ai_chat_messages (conversation_id, role, content, ai_model, metadata)
-            VALUES ($1, 'assistant', $2, 'claude-3-opus', '{}')
+            VALUES ($1, 'assistant', $2, 'claude-3-5-sonnet-20241022', '{}')
             RETURNING *
             "#
         )
